@@ -96,11 +96,21 @@ describe('RouteList', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('No safe route at this departure time')
   })
 
-  it('shows flagged miles, stops and traffic delay', () => {
+  it('says when a route is Low the whole way instead of listing zeros', () => {
+    render(<RouteList plan={PLAN} selectedId="route-1" onSelect={vi.fn()} />)
+
+    const first = screen.getAllByRole('button')[0]!
+    expect(within(first).getByText('✓ Low risk the whole way')).toBeInTheDocument()
+    expect(within(first).queryByText(/0 mi/)).not.toBeInTheDocument()
+  })
+
+  it('shows only the risk levels a route reaches, plus stops and traffic delay', () => {
     render(<RouteList plan={blockedPlan()} selectedId="route-1" onSelect={vi.fn()} />)
 
     const first = screen.getAllByRole('button')[0]!
     expect(within(first).getByText('12.5 mi')).toBeInTheDocument()
+    expect(within(first).getByText('3 mi')).toBeInTheDocument() // unknown miles
+    expect(within(first).queryByText('Severe:')).not.toBeInTheDocument()
     expect(
       within(first).getByText(/1 rest stop, 1 break · 20 min traffic delay/),
     ).toBeInTheDocument()

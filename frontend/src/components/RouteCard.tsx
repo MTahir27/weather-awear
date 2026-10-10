@@ -1,5 +1,7 @@
 import type { Route } from '../api/schemas'
 import { formatDuration, formatMiles, formatTime } from '../lib/format'
+import { riskStyle } from '../lib/risk'
+import { riskBreakdown } from '../lib/routes'
 import { RiskBadge } from './RiskBadge'
 import { RiskBar } from './RiskBar'
 
@@ -20,15 +22,9 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export function RouteCard({ route, name, selected, onSelect }: RouteCardProps) {
-  const miles = route.risk.miles_by_level
   const restStops = route.stops.filter((s) => s.kind === 'rest').length
   const breaks = route.stops.length - restStops
-  const flagged = [
-    ['No Travel', miles.no_travel ?? 0],
-    ['Severe', miles.severe ?? 0],
-    ['High', miles.high ?? 0],
-    ['Unknown', route.risk.unknown_mi],
-  ] as const
+  const breakdown = riskBreakdown(route.risk)
 
   return (
     <button
@@ -62,13 +58,25 @@ export function RouteCard({ route, name, selected, onSelect }: RouteCardProps) {
 
       <div className="mt-3">
         <RiskBar risk={route.risk} />
-        <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
-          {flagged.map(([label, value]) => (
-            <li key={label}>
-              {label}: <span className="font-semibold text-slate-800">{formatMiles(value)}</span>
-            </li>
-          ))}
-        </ul>
+        {breakdown.length === 0 ? (
+          <p className="mt-2 text-xs font-medium text-green-700">✓ Low risk the whole way</p>
+        ) : (
+          <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
+            {breakdown.map((item) => (
+              <li key={item.key} className="flex items-center gap-1">
+                <span
+                  aria-hidden
+                  className="h-2 w-2 rounded-full"
+                  style={{
+                    backgroundColor: riskStyle(item.key === 'unknown' ? null : item.key).hex,
+                  }}
+                />
+                {item.label}:{' '}
+                <span className="font-semibold text-slate-800">{formatMiles(item.miles)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {(route.stops.length > 0 || route.traffic_delay_s > 60) && (

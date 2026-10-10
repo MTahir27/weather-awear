@@ -1,4 +1,4 @@
-import { RISK_LEVELS, type Route } from '../api/schemas'
+import { RISK_LEVELS, type RiskLevel, type Route } from '../api/schemas'
 import { RISK_STYLE } from './risk'
 
 /** Routes arrive ranked best-first; they are named A, B, C in that order. */
@@ -61,6 +61,20 @@ export function labelFraction(rank: number): number {
   return [0.5, 0.3, 0.7][rank - 1] ?? 0.5
 }
 
+const LABEL_STEPS_MI = [100, 200, 250, 500, 1000]
+const MAX_ETA_LABELS = 7
+
+/**
+ * Spacing between arrival-time labels: the smallest round step that keeps a
+ * route to about seven labels, so cross-country trips stay readable.
+ */
+export function etaLabelSpacing(totalMiles: number): number {
+  return (
+    LABEL_STEPS_MI.find((step) => totalMiles / step <= MAX_ETA_LABELS - 1) ??
+    LABEL_STEPS_MI[LABEL_STEPS_MI.length - 1]!
+  )
+}
+
 /**
  * Checkpoints that get an arrival-time label on the map: the origin, the first
  * checkpoint at or past every `everyMiles`, and the destination.
@@ -84,4 +98,27 @@ export function etaLabelCheckpoints<T extends { mile: number }>(
     chosen.push(last)
   }
   return chosen
+}
+
+export interface RiskBreakdownItem {
+  key: RiskLevel | 'unknown'
+  label: string
+  miles: number
+}
+
+/**
+ * Miles at each level that can decide the ranking (worst first), omitting
+ * levels the route never reaches. Empty means the whole route is Low.
+ */
+export function riskBreakdown(risk: Route['risk']): RiskBreakdownItem[] {
+  const items: RiskBreakdownItem[] = (['no_travel', 'severe', 'high', 'moderate'] as const).map(
+    (level) => ({
+      key: level,
+      label: RISK_STYLE[level].label,
+      miles: risk.miles_by_level[level] ?? 0,
+    }),
+  )
+  items.push({ key: 'unknown', label: RISK_STYLE.unknown.label, miles: risk.unknown_mi })
+  // Below 0.05 mi rounds to "0 mi" on screen, which would read as a contradiction.
+  return items.filter((item) => item.miles >= 0.05)
 }

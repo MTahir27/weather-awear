@@ -4,7 +4,7 @@ import { Marker } from 'react-map-gl/maplibre'
 import { formatClock, formatDuration, formatMiles } from '../lib/format'
 import { pointAtMile } from '../lib/geometry'
 import { riskStyle } from '../lib/risk'
-import { etaLabelCheckpoints, labelFraction, riskSummary } from '../lib/routes'
+import { etaLabelCheckpoints, etaLabelSpacing, labelFraction, riskSummary } from '../lib/routes'
 import type { MapRoute } from './layers'
 
 // deck.gl's canvas is mounted in MapLibre's top-left control container
@@ -32,7 +32,10 @@ export const RouteLabels = memo(function RouteLabels({
   return (
     <>
       {selected &&
-        etaLabelCheckpoints(selected.route.checkpoints).map((checkpoint) => (
+        etaLabelCheckpoints(
+          selected.route.checkpoints,
+          etaLabelSpacing(selected.route.distance_mi),
+        ).map((checkpoint) => (
           <Marker
             key={`eta-${checkpoint.mile}`}
             longitude={checkpoint.lon}

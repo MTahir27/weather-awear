@@ -13,5 +13,6 @@ def isolated_state() -> Iterator[None]:
     dependencies.get_trip_planner.cache_clear()
     dependencies.get_geocoder.cache_clear()
     dependencies.get_heatmap_builder.cache_clear()
+    dependencies.get_weather_provider.cache_clear()
     yield
     cache.clear()

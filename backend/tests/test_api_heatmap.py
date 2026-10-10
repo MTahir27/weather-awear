@@ -112,3 +112,10 @@ def test_heatmap_is_rate_limited(
 
 def test_real_builder_is_constructed() -> None:
     assert isinstance(dependencies.get_heatmap_builder(), HeatmapBuilder)
+
+
+def test_planner_and_heatmap_share_one_weather_cache() -> None:
+    planner_weather = dependencies.get_trip_planner()._weather
+    heatmap_weather = dependencies.get_heatmap_builder()._weather
+
+    assert planner_weather is heatmap_weather is dependencies.get_weather_provider()

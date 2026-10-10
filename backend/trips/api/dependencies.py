@@ -20,8 +20,14 @@ def _tomtom_key() -> str:
 
 
 @cache
+def get_weather_provider() -> OpenMeteoProvider:
+    """One instance per process so trip plans and heatmaps share its forecast cache."""
+    return OpenMeteoProvider()
+
+
+@cache
 def get_trip_planner() -> TripPlanner:
-    return TripPlanner(TomTomRouter(_tomtom_key()), OpenMeteoProvider())
+    return TripPlanner(TomTomRouter(_tomtom_key()), get_weather_provider())
 
 
 @cache
@@ -31,4 +37,4 @@ def get_geocoder() -> Geocoder:
 
 @cache
 def get_heatmap_builder() -> HeatmapBuilder:
-    return HeatmapBuilder(OpenMeteoProvider())
+    return HeatmapBuilder(get_weather_provider())

@@ -50,9 +50,10 @@ def test_requests_expected_units_window_and_locations(provider: OpenMeteoProvide
     assert params["wind_speed_unit"] == "mph"
     assert params["precipitation_unit"] == "inch"
     assert params["timeformat"] == "unixtime"
-    # 14:20 -> 14:50 is widened to whole hours 14:00 -> 15:00.
-    assert params["start_hour"] == START.strftime("%Y-%m-%dT%H:00")
-    assert params["end_hour"] == (START + timedelta(hours=1)).strftime("%Y-%m-%dT%H:00")
+    # Every location is fetched for one fixed window: the past hour to 12 days ahead.
+    first = datetime.now(UTC).replace(minute=0, second=0, microsecond=0) - timedelta(hours=1)
+    assert params["start_hour"] == first.strftime("%Y-%m-%dT%H:00")
+    assert params["end_hour"] == (first + timedelta(days=12)).strftime("%Y-%m-%dT%H:00")
     assert len(series) == 2
 
 
@@ -152,3 +153,54 @@ def test_malformed_forecast_raises_provider_error(
 
     with pytest.raises(ProviderError, match="unexpected shape"):
         provider.hourly([LatLon(40, -100)], START, START)
+
+
+@respx.mock
+def test_repeat_requests_are_served_from_cache(provider: OpenMeteoProvider) -> None:
+    api = respx.get(URL).respond(json=[location_payload(), location_payload()])
+    locations = [LatLon(40, -100), LatLon(41, -100)]
+
+    first = provider.hourly(locations, START, START)
+    second = provider.hourly(list(reversed(locations)), START, START + timedelta(minutes=30))
+
+    assert api.call_count == 1
+    assert second == list(reversed(first))
+
+
+@respx.mock
+def test_only_missing_locations_are_fetched(provider: OpenMeteoProvider) -> None:
+    api = respx.get(URL).mock(
+        side_effect=[
+            httpx.Response(200, json=location_payload()),
+            httpx.Response(200, json=location_payload()),
+        ]
+    )
+
+    provider.hourly([LatLon(40, -100)], START, START)
+    provider.hourly([LatLon(40, -100), LatLon(42, -100)], START, START)
+
+    assert api.call_count == 2
+    assert api.calls.last.request.url.params["latitude"] == "42.0000"
+
+
+@respx.mock
+def test_duplicate_locations_are_fetched_once(provider: OpenMeteoProvider) -> None:
+    api = respx.get(URL).respond(json=location_payload())
+
+    series = provider.hourly([LatLon(40, -100), LatLon(40.00001, -100)], START, START)
+
+    assert api.calls.last.request.url.params["latitude"] == "40.0000"
+    assert series[0] is series[1]
+
+
+@respx.mock
+def test_cached_series_not_covering_the_request_is_refetched(
+    provider: OpenMeteoProvider,
+) -> None:
+    # The fake series covers only two hours, so a later request is not covered.
+    api = respx.get(URL).respond(json=location_payload(hours=2))
+
+    provider.hourly([LatLon(40, -100)], START, START)
+    provider.hourly([LatLon(40, -100)], START, START + timedelta(hours=5))
+
+    assert api.call_count == 2

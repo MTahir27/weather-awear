@@ -10,6 +10,7 @@ from typing import Any
 from trips.domain.geo import meters_to_miles
 from trips.domain.polyline import encode, simplify
 from trips.domain.risk import RiskLevel
+from trips.services.heatmap import Heatmap
 from trips.services.plan_trip import PlannedCheckpoint, PlannedRoute, PlannedStop, TripPlan
 
 GEOMETRY_TOLERANCE_M = 15.0
@@ -101,4 +102,22 @@ def _stop(stop: PlannedStop) -> dict[str, Any]:
         "lon": round(stop.position.lon, 5),
         "starts_at": _iso(stop.starts_at),
         "ends_at": _iso(stop.ends_at),
+    }
+
+
+def present_heatmap(heatmap: Heatmap) -> dict[str, Any]:
+    """Column-oriented arrays: frame k, point i is `risk[k][i]`, at (lat[i], lon[i])."""
+
+    def frames(values: list[list[float | None]], digits: int) -> list[list[float | None]]:
+        return [[_round(v, digits) for v in frame] for frame in values]
+
+    return {
+        "departure_time": _iso(heatmap.depart_at),
+        "frame_hours": 1,
+        "lat": [round(p.lat, 4) for p in heatmap.points],
+        "lon": [round(p.lon, 4) for p in heatmap.points],
+        "risk": heatmap.risk,
+        "wind_score": frames(heatmap.wind_score, 2),
+        "rain_score": frames(heatmap.rain_score, 2),
+        "snow_score": frames(heatmap.snow_score, 2),
     }

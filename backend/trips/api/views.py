@@ -10,8 +10,12 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
 from trips.api import dependencies
-from trips.api.presenters import present_plan
-from trips.api.serializers import GeocodeQuerySerializer, TripRequestSerializer
+from trips.api.presenters import present_heatmap, present_plan
+from trips.api.serializers import (
+    GeocodeQuerySerializer,
+    HeatmapRequestSerializer,
+    TripRequestSerializer,
+)
 from trips.providers.base import NoRouteFound
 from trips.providers.http import ProviderError, ProviderUnavailable
 
@@ -29,6 +33,10 @@ class PlanThrottle(AnonRateThrottle):
 
 class GeocodeThrottle(AnonRateThrottle):
     scope = "geocode"
+
+
+class HeatmapThrottle(AnonRateThrottle):
+    scope = "heatmap"
 
 
 @api_view(["GET"])
@@ -74,6 +82,18 @@ def plan_trip(request: Request) -> Response:
     except ImproperlyConfigured as exc:
         return _not_configured(exc)
     return Response(present_plan(plan))
+
+
+@api_view(["POST"])
+@throttle_classes([HeatmapThrottle])
+def heatmap(request: Request) -> Response:
+    serializer = HeatmapRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    try:
+        result = dependencies.get_heatmap_builder().build(serializer.to_heatmap_request())
+    except ProviderError as exc:
+        return _provider_failure(exc)
+    return Response(present_heatmap(result))
 
 
 @api_view(["GET"])

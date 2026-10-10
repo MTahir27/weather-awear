@@ -115,7 +115,7 @@ api/index.py              Vercel entry (exposes Django WSGI app)
 **plan_trip pipeline:** validate → routes (+fill to 3) → sample checkpoints → ETA (+HOS) →
 batched/deduped weather → classify → score → rank.
 
-**Heatmap:** ~25–30 mi buffer around the routes, adaptive grid spacing capped at ~300–400 points,
+**Heatmap:** ~25–30 mi buffer around the routes, adaptive grid spacing capped at 250 points,
 49 hourly frames (0–48 h from departure), risk pre-scored with load rules.
 
 **Robustness:** timeouts + retry/backoff on upstream calls; upstream failure → 502 with readable message;
@@ -131,8 +131,9 @@ partial weather failure → Unknown checkpoints; no keys client-side.
   stacked risk-by-mile bar, ★ Recommended badge + "why" line.
 - **Map (deck.gl):** all 3 routes; selected route coloured per segment by risk; checkpoint dots with
   tooltip (mile, ETA, wind/gust, rain, snow, level + driver, load-rule note); rest-stop markers; auto-fit.
-- **Heatmap:** `HeatmapLayer` with `aggregation: 'MEAN'` (SUM would make dense clusters look riskier),
-  fixed `colorDomain [0,4]` so colours don't rescale per frame. Metric toggle: risk / wind / rain / snow.
+- **Heatmap:** one translucent disc per corridor grid cell (meters-sized, coloured by risk band; unknown
+  cells grey). A kernel `HeatmapLayer` was prototyped and rejected because its smoothing hid isolated
+  hazardous cells (see docs/assumptions.md). Metric toggle: risk / wind / rain / snow / off.
 - **Slider:** 0–48 h from departure, absolute-time label, ▶ play. Truck marker on each route at slider time.
 - **Performance:** all frames fetched once into Float32Arrays; slider only changes layer hour index via
   `updateTriggers` + rAF; memoised layers; simplified polylines; lazy-loaded map bundle.
@@ -211,7 +212,7 @@ Repo + tooling, nothing functional yet.
 
 ### Phase 4 — Heatmap & time slider
 - Backend `domain/corridor.py` + `POST /api/trips/heatmap` (compact arrays, capped grid).
-- Frontend heatmap layer (MEAN aggregation, fixed colour domain), metric toggle, 0–48 h slider with play,
+- Frontend per-cell heatmap layer (risk-band colours), metric toggle, 0–48 h slider with play,
   truck-position markers. Zero network / zero React re-render while scrubbing.
 - **Exit:** smooth 60 fps scrubbing on a long route.
 

@@ -8,6 +8,7 @@ from django.core.exceptions import ImproperlyConfigured
 from trips.providers.base import Geocoder
 from trips.providers.open_meteo import OpenMeteoProvider
 from trips.providers.tomtom import TomTomGeocoder, TomTomRouter
+from trips.services.heatmap import HeatmapBuilder
 from trips.services.plan_trip import TripPlanner
 
 
@@ -26,3 +27,8 @@ def get_trip_planner() -> TripPlanner:
 @cache
 def get_geocoder() -> Geocoder:
     return TomTomGeocoder(_tomtom_key())
+
+
+@cache
+def get_heatmap_builder() -> HeatmapBuilder:
+    return HeatmapBuilder(OpenMeteoProvider())

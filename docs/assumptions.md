@@ -115,3 +115,21 @@ Routes are compared in this order:
   unreliable.
 - Origin and destination must be at least 1 mile apart. Load weight is
   limited to 0–150,000 lb.
+
+## Heatmap — [`corridor.py`](../backend/trips/domain/corridor.py), [`heatmap.py`](../backend/trips/services/heatmap.py), [`layers.ts`](../frontend/src/map/layers.ts)
+
+- The slider runs from the departure time (0 h) to 48 h after it, in hourly
+  frames. Each frame is scored like route checkpoints, using the same hour
+  alignment and the same load rules, so the heatmap and the route colours
+  always agree. A truck marker shows where each route's truck is at that
+  hour, parked during rest stops.
+- Forecasts come from a regular grid within ~25 miles of every route. The
+  grid is capped at 250 points: the cell size grows until the trip fits, which
+  keeps weather-API usage predictable.
+- The Wind, Rain and Snow views use a continuous 0–4 score that crosses each
+  integer exactly at that factor's threshold. They share the risk legend's
+  colour bands, even though the thresholds are unevenly spaced.
+- **Each grid cell is drawn with its own value.** A kernel-density heatmap was
+  tried and rejected: smoothing averaged isolated hazardous cells with calm
+  neighbours until they disappeared. Low cells are clear, and cells without
+  forecast data are grey.

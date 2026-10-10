@@ -96,3 +96,22 @@ export function boundsOf(paths: LonLat[][]): [LonLat, LonLat] | null {
       ]
     : null
 }
+
+/** Point `miles` along the path, with the path scaled to `totalMiles` (clamped). */
+export function pointAtMile(path: LonLat[], totalMiles: number, miles: number): LonLat {
+  if (path.length === 0) throw new Error('Path is empty')
+  const cumulative = [0]
+  for (let i = 1; i < path.length; i++) {
+    cumulative.push(cumulative[i - 1]! + haversineMiles(path[i - 1]!, path[i]!))
+  }
+  const measured = cumulative[cumulative.length - 1]!
+  const target = measured > 0 && totalMiles > 0 ? (miles / totalMiles) * measured : 0
+  if (target <= 0) return path[0]!
+  if (target >= measured) return path[path.length - 1]!
+  let i = 1
+  while (cumulative[i]! < target) i++
+  const [a, b] = [path[i - 1]!, path[i]!]
+  const span = cumulative[i]! - cumulative[i - 1]!
+  const t = span > 0 ? (target - cumulative[i - 1]!) / span : 0
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
+}

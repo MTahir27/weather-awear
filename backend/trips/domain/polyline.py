@@ -61,3 +61,31 @@ def encode(points: Sequence[LatLon], precision: int = 5) -> str:
             chunks.append(chr(value + 63))
         previous_lat, previous_lon = lat, lon
     return "".join(chunks)
+
+
+def decode(encoded: str, precision: int = 5) -> list[LatLon]:
+    """Inverse of `encode`. Raises ValueError on malformed input."""
+    factor = 10**precision
+    points: list[LatLon] = []
+    index = lat = lon = 0
+
+    def next_delta() -> int:
+        nonlocal index
+        result = shift = 0
+        while True:
+            if index >= len(encoded):
+                raise ValueError("Malformed polyline.")
+            byte = ord(encoded[index]) - 63
+            index += 1
+            if not 0 <= byte < 64:
+                raise ValueError("Malformed polyline.")
+            result |= (byte & 0x1F) << shift
+            shift += 5
+            if byte < 0x20:
+                return ~(result >> 1) if result & 1 else result >> 1
+
+    while index < len(encoded):
+        lat += next_delta()
+        lon += next_delta()
+        points.append(LatLon(lat / factor, lon / factor))
+    return points

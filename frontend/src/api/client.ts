@@ -2,7 +2,10 @@ import type { z } from 'zod'
 
 import {
   geocodeResponseSchema,
+  heatmapSchema,
   tripPlanSchema,
+  type HeatmapRequest,
+  type HeatmapResponse,
   type Place,
   type TripPlan,
   type TripPlanRequest,
@@ -76,6 +79,14 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
 
 export function planTrip(body: TripPlanRequest, signal?: AbortSignal): Promise<TripPlan> {
   return request('/trips/plan', tripPlanSchema, {
+    method: 'POST',
+    body: JSON.stringify(body),
+    signal,
+  })
+}
+
+export function fetchHeatmap(body: HeatmapRequest, signal?: AbortSignal): Promise<HeatmapResponse> {
+  return request('/trips/heatmap', heatmapSchema, {
     method: 'POST',
     body: JSON.stringify(body),
     signal,

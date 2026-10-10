@@ -55,13 +55,15 @@ describe('buildLayers', () => {
 
     expect(layers.map((l) => l.id)).toEqual([
       'alternative-routes',
+      'alternative-risk',
+      'alternative-checkpoints',
       'selected-route-casing',
       'selected-route-risk',
       'rest-stops',
       'checkpoints',
     ])
     expect((layers[0]!.props.data as unknown[]).length).toBe(2)
-    expect(layers[4]!.props.data).toBe(PLAN.routes[1]!.checkpoints)
+    expect(layers[6]!.props.data).toBe(PLAN.routes[1]!.checkpoints)
   })
 
   it('selects an alternative route when it is clicked', () => {
@@ -74,6 +76,22 @@ describe('buildLayers', () => {
     expect(onSelectRoute).toHaveBeenCalledWith(routes[2]!.route.id)
   })
 
+  it('shows risk colours and checkpoints for the alternative routes too', () => {
+    const routes = prepareRoutes(PLAN)
+    const layers = buildLayers({ routes, selectedId: 'route-1', onSelectRoute: vi.fn() })
+    const byId = Object.fromEntries(layers.map((l) => [l.id, l]))
+
+    const alternativeCheckpoints = byId['alternative-checkpoints']!.props.data as {
+      routeName: string
+    }[]
+    const expected = PLAN.routes[1]!.checkpoints.length + PLAN.routes[2]!.checkpoints.length
+    expect(alternativeCheckpoints).toHaveLength(expected)
+    expect(new Set(alternativeCheckpoints.map((c) => c.routeName))).toEqual(
+      new Set(['Route B', 'Route C']),
+    )
+    expect((byId['alternative-risk']!.props.data as unknown[]).length).toBeGreaterThan(0)
+  })
+
   it('draws only alternatives when nothing is selected', () => {
     const layers = buildLayers({
       routes: prepareRoutes(PLAN),
@@ -81,7 +99,11 @@ describe('buildLayers', () => {
       onSelectRoute: vi.fn(),
     })
 
-    expect(layers.map((l) => l.id)).toEqual(['alternative-routes'])
+    expect(layers.map((l) => l.id)).toEqual([
+      'alternative-routes',
+      'alternative-risk',
+      'alternative-checkpoints',
+    ])
   })
 })
 
@@ -115,6 +137,11 @@ describe('tooltips', () => {
       ({ object, layer: { id: layerId } }) as unknown as PickingInfo
 
     expect(tooltipFor(info('checkpoints', CHECKPOINT))?.html).toContain('Mile 125')
+    const alternative = tooltipFor(
+      info('alternative-checkpoints', { routeName: 'Route C', checkpoint: CHECKPOINT }),
+    )?.html
+    expect(alternative).toContain('Route C')
+    expect(alternative).toContain('Mile 125')
     expect(tooltipFor(info('alternative-routes', routes[1]))?.html).toContain('Route B')
     expect(tooltipFor(info('selected-route-risk', {}))).toBeNull()
     expect(tooltipFor(info('checkpoints', null))).toBeNull()

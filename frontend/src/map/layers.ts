@@ -19,6 +19,8 @@ export interface MapRoute {
 
 type Rgba = [number, number, number, number]
 const ALTERNATIVE: Rgba = [71, 85, 105, 150]
+// Alternatives show their risk too, slightly faded so the selected route stands out.
+const ALTERNATIVE_ALPHA = 170
 const CASING: Rgba = [255, 255, 255, 255]
 const STOP_FILL: Rgba = [15, 23, 42, 255]
 
@@ -41,7 +43,16 @@ interface LayerOptions {
   onSelectRoute: (routeId: string) => void
 }
 
-/** deck.gl layers, bottom to top: alternatives, selected route by risk, stops, checkpoints. */
+export interface RouteCheckpoint {
+  routeName: string
+  checkpoint: Checkpoint
+}
+
+/**
+ * deck.gl layers, bottom to top: every alternative route (clickable casing,
+ * risk colours, checkpoints), then the selected route (casing, risk colours,
+ * stops, checkpoints) drawn bolder on top.
+ */
 export function buildLayers({ routes, selectedId, onSelectRoute }: LayerOptions): Layer[] {
   const selected = routes.find((r) => r.route.id === selectedId)
   const alternatives = routes.filter((r) => r.route.id !== selectedId)
@@ -52,7 +63,7 @@ export function buildLayers({ routes, selectedId, onSelectRoute }: LayerOptions)
       data: alternatives,
       getPath: (d) => d.path,
       getColor: ALTERNATIVE,
-      getWidth: 5,
+      getWidth: 8,
       widthUnits: 'pixels',
       capRounded: true,
       jointRounded: true,
@@ -62,6 +73,31 @@ export function buildLayers({ routes, selectedId, onSelectRoute }: LayerOptions)
       onClick: ({ object }) => {
         if (object) onSelectRoute(object.route.id)
       },
+    }),
+    new PathLayer<RiskStretch>({
+      id: 'alternative-risk',
+      data: alternatives.flatMap((r) => r.stretches),
+      getPath: (d) => d.path,
+      getColor: (d) => [...riskRgb(d.level), ALTERNATIVE_ALPHA],
+      getWidth: 4,
+      widthUnits: 'pixels',
+      capRounded: true,
+      jointRounded: true,
+    }),
+    new ScatterplotLayer<RouteCheckpoint>({
+      id: 'alternative-checkpoints',
+      data: alternatives.flatMap((r) =>
+        r.route.checkpoints.map((checkpoint) => ({ routeName: r.name, checkpoint })),
+      ),
+      getPosition: (d) => [d.checkpoint.lon, d.checkpoint.lat],
+      getFillColor: (d) => [...riskRgb(d.checkpoint.level), 220],
+      getLineColor: CASING,
+      getRadius: 3.5,
+      radiusUnits: 'pixels',
+      lineWidthUnits: 'pixels',
+      getLineWidth: 1,
+      stroked: true,
+      pickable: true,
     }),
   ]
   if (!selected) return layers
@@ -243,7 +279,10 @@ export function tooltipFor(info: PickingInfo): { html: string; className: string
   if (!object || !layer) return null
   let html: string | null = null
   if (layer.id === 'checkpoints') html = checkpointTooltip(object as Checkpoint)
-  else if (layer.id === 'rest-stops') html = stopTooltip(object as Stop)
+  else if (layer.id === 'alternative-checkpoints') {
+    const { routeName: name, checkpoint } = object as RouteCheckpoint
+    html = `<div class="text-slate-300">${escape(name)} · click the route to select</div>${checkpointTooltip(checkpoint)}`
+  } else if (layer.id === 'rest-stops') html = stopTooltip(object as Stop)
   else if (layer.id === 'trucks') html = truckTooltip(object as TruckMarker)
   else if (layer.id === 'alternative-routes')
     html = `<div class="font-semibold">${escape((object as MapRoute).name)}</div><div>Click to select</div>`

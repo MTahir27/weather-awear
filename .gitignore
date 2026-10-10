@@ -1,0 +1,33 @@
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+staticfiles/
+db.sqlite3
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+
+# Tooling
+.vercel/
+graphify-out/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json

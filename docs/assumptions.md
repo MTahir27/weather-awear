@@ -79,3 +79,39 @@ Routes are compared in this order:
 - The spec's order is applied strictly. "Balancing" risk and time means time
   only decides between routes whose weather risk is equal. Each recommendation
   states the deciding factor in plain English.
+
+## Routes — [`route_options.py`](../backend/trips/services/route_options.py)
+
+- **Three routes are guaranteed where the road network allows.** TomTom often
+  returns fewer alternatives than requested (one or two for Denver → Chicago).
+  To make up the difference, extra candidates are requested at the same time as
+  the main request: via points 15% of the trip distance (15–150 km) to either
+  side of the midpoint, plus routes avoiding toll roads and motorways.
+- A fallback is used only if it overlaps every chosen route by less than 90%
+  (checked in both directions) and takes at most 1.5× the fastest travel time.
+- Trade-off: four extra routing calls per plan, in exchange for ~40% lower
+  latency on long trips.
+- **Routing uses gross vehicle weight.** The brief's load weight is cargo,
+  while truck routing restrictions apply to the whole vehicle. Routing is
+  therefore requested with load + 35,000 lb (a typical empty tractor-trailer).
+  Risk rules use the load weight, as the brief specifies.
+
+## Weather — [`forecast.py`](../backend/trips/domain/forecast.py), [`open_meteo.py`](../backend/trips/providers/open_meteo.py)
+
+- Forecasts come from Open-Meteo (hourly, mph and inches, up to 16 days ahead).
+- Precipitation values are totals for the hour *ending* at their timestamp,
+  so an arrival at 14:20 uses the 15:00 value. Wind and gusts are interpolated
+  between hours.
+- Liquid precipitation is rain plus showers.
+- Checkpoints within ~2 km of each other share one forecast location. This is
+  finer than the weather models' own grid, and avoids duplicate lookups on
+  shared highway stretches.
+- Arrivals beyond the forecast horizon are **Unknown**.
+
+## Departure window — [`serializers.py`](../backend/trips/api/serializers.py)
+
+- Departure must be between now (with 15 minutes' grace, treated as "now")
+  and 7 days ahead. Further out, forecasts for the far end of a long trip are
+  unreliable.
+- Origin and destination must be at least 1 mile apart. Load weight is
+  limited to 0–150,000 lb.

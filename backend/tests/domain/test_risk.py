@@ -6,8 +6,10 @@ from trips.domain.risk import (
     WIND_MPH_THRESHOLDS,
     Factor,
     RiskLevel,
+    Threshold,
     WeatherSample,
     classify,
+    factor_score,
     level_for,
     wind_level,
 )
@@ -171,3 +173,48 @@ class TestClassify:
     def test_negative_load_is_rejected(self) -> None:
         with pytest.raises(ValueError, match="Load weight"):
             classify(calm(), -1)
+
+
+@pytest.mark.parametrize(
+    ("thresholds", "value", "expected"),
+    [
+        (WIND_MPH_THRESHOLDS, 0, 0),
+        (WIND_MPH_THRESHOLDS, 12.5, 0.5),
+        (WIND_MPH_THRESHOLDS, 25, 1),
+        (WIND_MPH_THRESHOLDS, 40, 2.5),
+        (WIND_MPH_THRESHOLDS, 55, 4),
+        (WIND_MPH_THRESHOLDS, 90, 4),
+        (RAIN_IN_PER_HR_THRESHOLDS, 0.175, 1.5),
+        (RAIN_IN_PER_HR_THRESHOLDS, 0.75, 3.5),
+        (RAIN_IN_PER_HR_THRESHOLDS, 1.0, 3.999),  # exactly on the strict "> 1.00": still Severe
+        (RAIN_IN_PER_HR_THRESHOLDS, 1.5, 4),
+        (SNOW_IN_PER_HR_THRESHOLDS, 2.5, 3.5),
+    ],
+)
+def test_factor_score_interpolates_between_thresholds(
+    thresholds: tuple[Threshold, ...], value: float, expected: float
+) -> None:
+    assert factor_score(value, thresholds) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(
+    ("thresholds", "values"),
+    [
+        (RAIN_IN_PER_HR_THRESHOLDS, [0, 0.05, 0.1, 0.249, 0.25, 0.5, 0.99, 1.0, 1.001, 1.2]),
+        (SNOW_IN_PER_HR_THRESHOLDS, [0, 0.5, 1.99, 2.0, 3.0, 3.01]),
+        (WIND_MPH_THRESHOLDS, [0, 24.9, 25, 34.99, 35, 45, 54.9, 55, 70]),
+    ],
+)
+def test_factor_score_band_matches_discrete_level(
+    thresholds: tuple[Threshold, ...], values: list[float]
+) -> None:
+    for value in values:
+        score = factor_score(value, thresholds)
+        assert score is not None
+        assert int(score) == level_for(value, thresholds), value
+
+
+def test_factor_score_handles_missing_and_negative_values() -> None:
+    assert factor_score(None, WIND_MPH_THRESHOLDS) is None
+    with pytest.raises(ValueError, match="cannot be negative"):
+        factor_score(-1, WIND_MPH_THRESHOLDS)

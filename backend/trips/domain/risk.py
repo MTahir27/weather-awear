@@ -70,6 +70,7 @@ SEVERE_IN_HIGH_WIND_ABOVE_LB = 40_000
 # conversion or summing (0.07 + 0.03 == 0.09999999999999999) cannot drop a
 # value below a threshold it actually meets.
 _PRECISION = 6
+_BELOW_NEXT_BAND = 0.999
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,3 +158,27 @@ def classify(sample: WeatherSample, load_lb: float) -> RiskAssessment:
     level = max(wind, rain, snow)
     level_without_load = max(level_for(sample.wind_mph, WIND_MPH_THRESHOLDS), rain, snow)
     return RiskAssessment(level=level, factors=factors, load_escalated=level > level_without_load)
+
+
+def factor_score(measurement: float | None, thresholds: tuple[Threshold, ...]) -> float | None:
+    """Continuous risk score 0-4 that crosses each integer exactly at its threshold.
+
+    Interpolates linearly between thresholds (e.g. 0.175 in/hr of rain is 1.5,
+    halfway through Moderate) and caps at No Travel. Lets maps colour a single
+    factor with the same bands as discrete risk levels, even though the
+    thresholds are unevenly spaced.
+    """
+    if measurement is None:
+        return None
+    if measurement < 0:
+        raise ValueError(f"Weather measurements cannot be negative, got {measurement}.")
+    value = round(measurement, _PRECISION)
+    previous = 0.0
+    for score, threshold in enumerate(thresholds):
+        if value < threshold.value or (value == threshold.value and not threshold.inclusive):
+            span = threshold.value - previous
+            fraction = (value - previous) / span if span > 0 else 0.0
+            # A value exactly on a strict threshold stays in the lower band.
+            return score + min(fraction, _BELOW_NEXT_BAND)
+        previous = threshold.value
+    return float(len(thresholds))

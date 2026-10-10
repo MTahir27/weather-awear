@@ -62,6 +62,12 @@ describe('App', () => {
     vi.restoreAllMocks()
   })
 
+  it('invites the user to plan a trip before the first search', () => {
+    renderWithQuery(<App />)
+
+    expect(screen.getByText(/Enter an origin, destination and load/)).toBeInTheDocument()
+  })
+
   it('plans a trip and selects the recommended route', async () => {
     vi.spyOn(client, 'planTrip').mockResolvedValue(PLAN)
     renderWithQuery(<App />)

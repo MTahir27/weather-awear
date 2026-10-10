@@ -3,7 +3,12 @@ import { setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useMemo, useRef } from 'react'
-import Map, { NavigationControl, useControl, type MapRef } from 'react-map-gl/maplibre'
+import Map, {
+  AttributionControl,
+  NavigationControl,
+  useControl,
+  type MapRef,
+} from 'react-map-gl/maplibre'
 
 import type { TripPlan } from '../api/schemas'
 import type { MetricChoice } from '../components/TimeControls'
@@ -86,8 +91,11 @@ export default function TripMap({
         style={{ width: '100%', height: '100%' }}
         dragRotate={false}
         touchPitch={false}
+        attributionControl={false}
       >
         <NavigationControl position="top-right" showCompass={false} />
+        {/* Top-right keeps the required attribution clear of the time controls. */}
+        <AttributionControl position="top-right" compact />
         <DeckOverlay layers={layers} getTooltip={tooltipFor} />
       </Map>
       {plan && <RiskLegend />}

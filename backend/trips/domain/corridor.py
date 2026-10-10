@@ -14,7 +14,7 @@ from itertools import pairwise
 from trips.domain.geo import LatLon, haversine_m, interpolate
 
 DEFAULT_BUFFER_M = 40_000.0  # ~25 miles either side of the routes
-DEFAULT_MAX_POINTS = 250
+DEFAULT_MAX_POINTS = 150
 _METERS_PER_DEGREE = 111_195.0
 _GROWTH = 1.1
 

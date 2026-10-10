@@ -211,3 +211,28 @@ def test_polyline_length_is_scaled_to_the_providers_road_length() -> None:
 
     assert route.checkpoints[-1].distance_m == pytest.approx(stretched.length_m)
     assert sum(route.risk.meters_by_level.values()) == pytest.approx(stretched.length_m)
+
+
+def test_long_trips_keep_forecast_locations_within_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    from trips.services import plan_trip
+
+    monkeypatch.setattr(plan_trip, "MAX_WEATHER_LOCATIONS", 20)
+    far = straight_route([ORIGIN, LatLon(40, -80)])  # ~1,700 km: ~106 checkpoints at 10 mi
+    fake_weather = weather()
+
+    route = (
+        TripPlanner(FakeRouter([far]), fake_weather)
+        .plan(request(destination=LatLon(40, -80), interval_mi=10))
+        .routes[0]
+    )
+
+    assert len(route.checkpoints) > 100
+    assert len(fake_weather.calls[0]["locations"]) <= 20
+    # Every checkpoint still gets weather at its own arrival time.
+    assert all(c.risk.is_known for c in route.checkpoints)
+
+
+def test_weather_grid_stays_fine_for_short_trips() -> None:
+    from trips.services.plan_trip import WEATHER_GRID_DEG, weather_grid_deg
+
+    assert weather_grid_deg([ORIGIN, DESTINATION]) == WEATHER_GRID_DEG

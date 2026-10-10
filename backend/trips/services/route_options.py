@@ -10,12 +10,16 @@ only if it is distinct from the routes already chosen and not an
 unreasonable detour.
 
 Trade-off: every plan makes four extra routing calls even when they turn out
-not to be needed, in exchange for ~40% lower latency on long trips.
+not to be needed, in exchange for ~40% lower latency on long trips. Fallbacks
+are never waited for when the provider's own alternatives suffice, and when
+they are needed only those finishing within FALLBACK_BUDGET_S are used, so
+one slow fallback cannot hold up the response.
 """
 
 import logging
+import time
 from collections.abc import Callable, Sequence
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -33,6 +37,8 @@ MAX_DETOUR_RATIO = 1.5
 VIA_OFFSET_RATIO = 0.15
 VIA_OFFSET_MIN_M = 15_000.0
 VIA_OFFSET_MAX_M = 150_000.0
+# How long (from the start of the request) fallbacks may take to be considered.
+FALLBACK_BUDGET_S = 10.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,7 +68,11 @@ def collect_route_options(router: RoutingProvider, query: RouteQuery) -> list[Pr
     fallbacks = [request(via=[p]) for p in via_points(query.origin, query.destination)]
     fallbacks += [request(avoid=[Avoid.TOLL_ROADS]), request(avoid=[Avoid.MOTORWAYS])]
 
-    with ThreadPoolExecutor(max_workers=1 + len(fallbacks)) as pool:
+    started = time.monotonic()
+    # Not a `with` block: leaving one waits for every running request, including
+    # fallbacks whose results are no longer needed.
+    pool = ThreadPoolExecutor(max_workers=1 + len(fallbacks))
+    try:
         main = pool.submit(request(alternatives=TARGET_ROUTE_COUNT - 1))
         fallback_futures = [pool.submit(f) for f in fallbacks]
 
@@ -70,6 +80,8 @@ def collect_route_options(router: RoutingProvider, query: RouteQuery) -> list[Pr
         if len(routes) >= TARGET_ROUTE_COUNT:
             return routes[:TARGET_ROUTE_COUNT]
 
+        remaining = max(0.0, FALLBACK_BUDGET_S - (time.monotonic() - started))
+        wait(fallback_futures, timeout=remaining)
         fastest = min(r.travel_time_s for r in routes)
         for candidate in _first_results(fallback_futures):
             if candidate.travel_time_s > fastest * MAX_DETOUR_RATIO:
@@ -79,6 +91,8 @@ def collect_route_options(router: RoutingProvider, query: RouteQuery) -> list[Pr
                 if len(routes) == TARGET_ROUTE_COUNT:
                     break
         return routes
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
 
 
 def via_points(origin: LatLon, destination: LatLon) -> list[LatLon]:
@@ -101,9 +115,11 @@ def _distinct(routes: Sequence[ProviderRoute]) -> list[ProviderRoute]:
 
 
 def _first_results(futures: Sequence[Future[list[ProviderRoute]]]) -> list[ProviderRoute]:
-    """The best route of each fallback request, in preference order; failures are skipped."""
+    """Best route of each finished fallback, in preference order; failures are skipped."""
     candidates: list[ProviderRoute] = []
     for future in futures:
+        if not future.done():
+            continue
         try:
             candidates.extend(future.result()[:1])
         except (NoRouteFound, ProviderError) as exc:

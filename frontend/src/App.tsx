@@ -3,6 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 
 import { ApiError, fetchHeatmap, planTrip } from './api/client'
 import type { TripPlan, TripPlanRequest } from './api/schemas'
+import { MapErrorBoundary } from './components/MapErrorBoundary'
 import { RouteList } from './components/RouteList'
 import { TimeControls, type MetricChoice } from './components/TimeControls'
 import { TripForm } from './components/TripForm'
@@ -88,7 +89,7 @@ export default function App() {
   const selectRoute = useCallback((routeId: string) => setSelectedId(routeId), [])
 
   return (
-    <div className="flex h-full flex-col lg:flex-row">
+    <div className="flex min-h-full flex-col lg:h-full lg:flex-row">
       <aside className="order-2 flex flex-col border-slate-200 bg-slate-50 lg:order-1 lg:h-full lg:w-[440px] lg:shrink-0 lg:overflow-y-auto lg:border-r">
         <header className="border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
           <h1 className="text-lg font-semibold text-slate-900">Weather-Aware Truck Routing</h1>
@@ -121,19 +122,26 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="relative order-1 h-[55vh] min-h-[320px] lg:order-2 lg:h-full lg:flex-1">
-        <Suspense fallback={<div className="h-full w-full animate-pulse bg-slate-200" />}>
-          <TripMap
-            plan={plan}
-            selectedId={selectedId}
-            onSelectRoute={selectRoute}
-            heatmap={heatmap}
-            metric={metric}
-            frame={frame}
-          />
-        </Suspense>
+      <main className="relative order-1 h-[55vh] min-h-[320px] shrink-0 lg:order-2 lg:h-full lg:flex-1 lg:shrink">
+        <MapErrorBoundary>
+          <Suspense fallback={<div className="h-full w-full animate-pulse bg-slate-200" />}>
+            <TripMap
+              plan={plan}
+              selectedId={selectedId}
+              onSelectRoute={selectRoute}
+              heatmap={heatmap}
+              metric={metric}
+              frame={frame}
+            />
+          </Suspense>
+        </MapErrorBoundary>
+        {!plan && !mutation.isPending && (
+          <div className="pointer-events-none absolute inset-x-3 bottom-8 mx-auto max-w-sm rounded-xl bg-white/95 p-3 text-center text-sm text-slate-700 shadow-lg">
+            Enter an origin, destination and load to compare routes by weather risk.
+          </div>
+        )}
         {plan && (
-          <div className="absolute inset-x-3 bottom-8 mx-auto max-w-xl">
+          <div className="absolute inset-x-2 bottom-2 mx-auto max-w-xl sm:inset-x-3 sm:bottom-8">
             <TimeControls
               departureMs={Date.parse(plan.departure_time)}
               frameMs={heatmap?.frameMs ?? 3600_000}

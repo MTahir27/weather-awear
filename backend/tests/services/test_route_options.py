@@ -1,3 +1,4 @@
+import time
 from collections.abc import Callable
 from datetime import UTC, datetime
 
@@ -7,6 +8,7 @@ from tests.services.fakes import FakeRouter, RouterCall, straight_route
 from trips.domain.geo import LatLon, haversine_m, initial_bearing_deg
 from trips.providers.base import Avoid, NoRouteFound, ProviderRoute
 from trips.providers.http import ProviderError, ProviderUnavailable
+from trips.services import route_options
 from trips.services.route_options import (
     RouteQuery,
     collect_route_options,
@@ -131,3 +133,31 @@ def test_via_offset_is_bounded(destination: LatLon, expected_offset_m: float) ->
     left, right = via_points(ORIGIN, destination)
 
     assert haversine_m(left, right) == pytest.approx(2 * expected_offset_m, rel=0.02)
+
+
+def test_unneeded_fallbacks_are_not_waited_for() -> None:
+    def slow(call: RouterCall) -> list[ProviderRoute]:
+        time.sleep(1.5)
+        return [TOLL_FREE]
+
+    started = time.monotonic()
+    routes = collect_route_options(FakeRouter([MAIN, NORTH, SOUTH], respond=slow), QUERY)
+
+    assert routes == [MAIN, NORTH, SOUTH]
+    assert time.monotonic() - started < 0.5
+
+
+def test_fallbacks_slower_than_the_budget_are_ignored(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(route_options, "FALLBACK_BUDGET_S", 0.2)
+
+    def respond(call: RouterCall) -> list[ProviderRoute]:
+        if call.avoid == (Avoid.TOLL_ROADS,):
+            return [TOLL_FREE]  # fast
+        time.sleep(1.5)  # via points and motorway avoidance are slow
+        return [NORTH]
+
+    started = time.monotonic()
+    routes = collect_route_options(FakeRouter([MAIN], respond=respond), QUERY)
+
+    assert routes == [MAIN, TOLL_FREE]
+    assert time.monotonic() - started < 1.0

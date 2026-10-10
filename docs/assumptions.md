@@ -91,6 +91,13 @@ Routes are compared in this order:
   (checked in both directions) and takes at most 1.5× the fastest travel time.
 - Trade-off: four extra routing calls per plan, in exchange for ~40% lower
   latency on long trips.
+- Fallbacks are never waited for when TomTom's own alternatives are enough.
+  When they are needed, only those finishing within 10 seconds of the request
+  are used, so one slow request can't delay the plan. Cross-country route
+  calculations get a 20-second timeout and are retried at most once.
+- TomTom's alternatives vary between calls. Occasionally every fallback is a
+  near-duplicate of a route already chosen. The app then shows two routes and
+  says so, rather than padding the list with a duplicate.
 - **Routing uses gross vehicle weight.** The brief's load weight is cargo,
   while truck routing restrictions apply to the whole vehicle. Routing is
   therefore requested with load + 35,000 lb (a typical empty tractor-trailer).
@@ -106,6 +113,14 @@ Routes are compared in this order:
 - Checkpoints within ~2 km of each other share one forecast location. This is
   finer than the weather models' own grid, and avoids duplicate lookups on
   shared highway stretches.
+- **Weather-API budget.** Open-Meteo's free tier allows 600 calls a minute,
+  5,000 an hour and 10,000 a day. Its documentation doesn't say how
+  multi-location requests count, so each location is assumed to count as one
+  call. A plan uses at most 200 forecast locations and a heatmap at most 150.
+  On very long trips at 10-mile spacing (New York → Los Angeles has ~890
+  checkpoints), the shared-location grid coarsens until the trip fits.
+  Coarsened, it stays close to the ~13–25 km grid of the models that forecast
+  beyond 2 days. Every checkpoint is still read at its own arrival time.
 - Arrivals beyond the forecast horizon are **Unknown**.
 
 ## Departure window — [`serializers.py`](../backend/trips/api/serializers.py)
@@ -124,7 +139,7 @@ Routes are compared in this order:
   always agree. A truck marker shows where each route's truck is at that
   hour, parked during rest stops.
 - Forecasts come from a regular grid within ~25 miles of every route. The
-  grid is capped at 250 points: the cell size grows until the trip fits, which
+  grid is capped at 150 points: the cell size grows until the trip fits, which
   keeps weather-API usage predictable.
 - The Wind, Rain and Snow views use a continuous 0–4 score that crosses each
   integer exactly at that factor's threshold. They share the risk legend's

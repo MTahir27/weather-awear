@@ -3,6 +3,11 @@
 Requests are batched (many coordinates per call) and run concurrently. Units
 are requested directly in mph and inches so values compare against the risk
 table without conversion.
+
+Every location is fetched for one fixed window (the past hour to 12 days
+ahead) and cached for 30 minutes, so any later trip or heatmap touching the
+same spot, whatever its departure time, reuses it instead of spending the
+free tier's per-minute quota again.
 """
 
 from collections.abc import Sequence
@@ -14,6 +19,7 @@ import httpx
 
 from trips.domain.forecast import HourlySeries
 from trips.domain.geo import LatLon
+from trips.providers.cache import TtlCache
 from trips.providers.http import ProviderError, get_json, make_client
 
 PROVIDER = "Open-Meteo"
@@ -23,35 +29,69 @@ BATCH_SIZE = 100
 MAX_PARALLEL_REQUESTS = 4
 _VARIABLES = ("wind_speed_10m", "wind_gusts_10m", "rain", "showers", "snowfall")
 _HOUR_FORMAT = "%Y-%m-%dT%H:%M"
+# Departure up to 7 days ahead plus a multi-day trip and a 48 h heatmap fits.
+FETCH_WINDOW = timedelta(days=12)
+CACHE_TTL_S = 30 * 60
+CACHE_MAX_ENTRIES = 5_000
+
+LocationKey = tuple[float, float]
+
+
+def _key(location: LatLon) -> LocationKey:
+    return round(location.lat, 4), round(location.lon, 4)
 
 
 class OpenMeteoProvider:
-    def __init__(self, client: httpx.Client | None = None) -> None:
+    def __init__(
+        self,
+        client: httpx.Client | None = None,
+        cache: TtlCache[LocationKey, HourlySeries] | None = None,
+    ) -> None:
         self._client = client or make_client()
+        self._cache = cache or TtlCache(ttl_s=CACHE_TTL_S, max_entries=CACHE_MAX_ENTRIES)
 
     def hourly(
         self, locations: Sequence[LatLon], start: datetime, end: datetime
     ) -> list[HourlySeries]:
         """Hourly forecasts covering [start, end], one per location, in input order.
 
-        The window is widened to whole hours and capped at the forecast
-        horizon; later times simply fall outside the returned series.
+        Series may extend beyond the requested window. Times past the fetched
+        window (or the forecast horizon) simply fall outside the series.
         """
         if not locations:
             return []
         if start.tzinfo is None or end.tzinfo is None:
             raise ValueError("start and end must be timezone-aware.")
-        first_hour = _floor_hour(start)
-        last_hour = min(_ceil_hour(end), _floor_hour(datetime.now(UTC) + FORECAST_HORIZON))
-        if last_hour < first_hour:
+        now = datetime.now(UTC)
+        window_start = min(_floor_hour(now) - timedelta(hours=1), _floor_hour(start))
+        window_end = min(window_start + FETCH_WINDOW, _floor_hour(now + FORECAST_HORIZON))
+        if _floor_hour(start) > window_end:
             raise ValueError("The requested window starts beyond the forecast horizon.")
+        needed_from = int(_floor_hour(start).timestamp())
+        needed_to = int(min(_ceil_hour(end), window_end).timestamp())
 
-        batches = [
-            list(locations[i : i + BATCH_SIZE]) for i in range(0, len(locations), BATCH_SIZE)
-        ]
-        with ThreadPoolExecutor(max_workers=MAX_PARALLEL_REQUESTS) as pool:
-            results = pool.map(lambda batch: self._fetch(batch, first_hour, last_hour), batches)
-            return [series for batch_result in results for series in batch_result]
+        keys = [_key(location) for location in locations]
+        found: dict[LocationKey, HourlySeries] = {}
+        for key in dict.fromkeys(keys):
+            cached = self._cache.get(key)
+            if cached is not None and cached.start <= needed_from and cached.end >= needed_to:
+                found[key] = cached
+
+        missing = [key for key in dict.fromkeys(keys) if key not in found]
+        batches = [missing[i : i + BATCH_SIZE] for i in range(0, len(missing), BATCH_SIZE)]
+        if batches:
+            with ThreadPoolExecutor(max_workers=MAX_PARALLEL_REQUESTS) as pool:
+                fetched = pool.map(
+                    lambda batch: self._fetch(
+                        [LatLon(*key) for key in batch], window_start, window_end
+                    ),
+                    batches,
+                )
+                for batch, series_list in zip(batches, fetched, strict=True):
+                    for key, series in zip(batch, series_list, strict=True):
+                        self._cache.set(key, series)
+                        found[key] = series
+        return [found[key] for key in keys]
 
     def _fetch(self, batch: list[LatLon], first: datetime, last: datetime) -> list[HourlySeries]:
         data = get_json(

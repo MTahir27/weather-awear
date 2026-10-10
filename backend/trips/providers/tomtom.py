@@ -17,6 +17,10 @@ COUNTRIES = "US,CA"
 # TomTom rejects departure times in the past; anything this close is "now".
 _DEPART_NOW_WITHIN = timedelta(minutes=1)
 _NO_ROUTE_CODES = {"NO_ROUTE_FOUND", "MAP_MATCHING_FAILURE"}
+# Cross-country truck routes with alternatives can take well over 10 s to
+# compute; retrying such a slow computation more than once only adds latency.
+ROUTING_TIMEOUT = httpx.Timeout(20.0, connect=5.0)
+ROUTING_ATTEMPTS = 2
 
 
 class TomTomRouter:
@@ -62,6 +66,8 @@ class TomTomRouter:
                 f"{BASE_URL}/routing/1/calculateRoute/{locations}/json",
                 params,
                 provider=PROVIDER,
+                attempts=ROUTING_ATTEMPTS,
+                timeout=ROUTING_TIMEOUT,
             )
         except ProviderError as exc:
             if _error_code(exc.payload) in _NO_ROUTE_CODES:

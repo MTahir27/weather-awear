@@ -45,14 +45,19 @@ def health(request: Request) -> Response:
 
 
 def _provider_failure(exc: ProviderError) -> Response:
-    logger.warning("Upstream provider failure: %s", exc)
+    logger.warning("Upstream provider failure: %s (status %s)", exc, exc.status_code)
+    if exc.status_code == 429:
+        detail = (
+            f"{exc.provider} is receiving too many requests right now. "
+            "Please try again in a minute."
+        )
+    elif isinstance(exc, ProviderUnavailable):
+        detail = f"{exc.provider} is not responding right now. Please try again shortly."
+    else:
+        detail = f"{exc.provider} returned an unexpected response. Please try again."
     unavailable = isinstance(exc, ProviderUnavailable)
     return Response(
-        {
-            "detail": f"{exc.provider} is not responding right now. Please try again shortly."
-            if unavailable
-            else f"{exc.provider} returned an unexpected response. Please try again."
-        },
+        {"detail": detail},
         status=status.HTTP_503_SERVICE_UNAVAILABLE if unavailable else status.HTTP_502_BAD_GATEWAY,
     )
 

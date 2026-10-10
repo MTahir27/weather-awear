@@ -59,8 +59,12 @@ def get_json(
     provider: str,
     attempts: int = 3,
     backoff_s: float = 0.4,
+    timeout: httpx.Timeout | None = None,
 ) -> Any:
-    """GET `url` and decode JSON, retrying transient failures."""
+    """GET `url` and decode JSON, retrying transient failures.
+
+    `timeout` overrides the client's default for slow endpoints.
+    """
 
     @retry(
         stop=stop_after_attempt(attempts),
@@ -69,7 +73,7 @@ def get_json(
         reraise=True,
     )
     def send() -> httpx.Response:
-        response = client.get(url, params=params)
+        response = client.get(url, params=params, timeout=timeout or client.timeout)
         response.raise_for_status()
         return response
 

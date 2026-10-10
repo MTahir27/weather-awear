@@ -106,3 +106,22 @@ def test_unrelated_exceptions_are_not_retried() -> None:
     from trips.providers.http import _is_transient
 
     assert not _is_transient(ValueError("bug"))
+
+
+@respx.mock
+def test_per_request_timeout_and_attempts(client: httpx.Client) -> None:
+    route = respx.get(URL).mock(side_effect=httpx.ReadTimeout("slow"))
+
+    with pytest.raises(ProviderUnavailable):
+        get_json(
+            client,
+            URL,
+            {},
+            provider="Example",
+            attempts=2,
+            backoff_s=0,
+            timeout=httpx.Timeout(20.0, connect=5.0),
+        )
+
+    assert route.call_count == 2
+    assert route.calls.last.request.extensions["timeout"]["read"] == 20.0

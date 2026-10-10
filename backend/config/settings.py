@@ -71,6 +71,12 @@ LOGGING = {
     "formatters": {"plain": {"format": "%(levelname)s %(name)s: %(message)s"}},
     "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "plain"}},
     "root": {"handlers": ["console"], "level": os.environ.get("LOG_LEVEL", "INFO")},
+    # httpx logs full request URLs at INFO, and provider API keys travel in the
+    # query string, so its loggers must never go below WARNING.
+    "loggers": {
+        "httpx": {"level": "WARNING"},
+        "httpcore": {"level": "WARNING"},
+    },
 }
 
 # Third-party API credentials.

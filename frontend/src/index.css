@@ -9,3 +9,8 @@ body,
 body {
   @apply bg-slate-50 text-slate-900 antialiased;
 }
+
+/* deck.gl tooltips (rendered outside React). */
+.map-tooltip {
+  @apply max-w-xs space-y-0.5 rounded-lg bg-slate-900/95 px-3 py-2 text-xs leading-snug text-white shadow-lg;
+}

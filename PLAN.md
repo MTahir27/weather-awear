@@ -228,16 +228,16 @@ Repo + tooling, nothing functional yet.
 ## 8. Schedule (2 days)
 
 **Day 1**
-- [ ] 0–1 h: repo scaffold (backend + frontend), deploy "hello world" to Vercel early
-- [ ] 1–5 h: domain logic + tests (risk, load rules, sampling, ETA, scoring, ranking)
-- [ ] 5–8 h: TomTom + Open-Meteo providers, `/api/trips/plan`, `/api/geocode`
-- [ ] 8–12 h: frontend form, route cards, map with routes + checkpoint tooltips
+- [x] 0–1 h: repo scaffold (backend + frontend), deploy "hello world" to Vercel early
+- [x] 1–5 h: domain logic + tests (risk, load rules, sampling, ETA, scoring, ranking)
+- [x] 5–8 h: TomTom + Open-Meteo providers, `/api/trips/plan`, `/api/geocode`
+- [x] 8–12 h: frontend form, route cards, map with routes + checkpoint tooltips
 
 **Day 2**
-- [ ] 0–4 h: heatmap endpoint + slider + play + truck marker
-- [ ] 4–6 h: HOS, edge cases (<3 routes, past departure, Unknown data, all-blocked), error/loading states
-- [ ] 6–8 h: polish, README, CI
-- [ ] 8–10 h: final deploy, test 3–4 real trips on prod, record Loom
-- [ ] ~2 h buffer
+- [x] 0–4 h: heatmap endpoint + slider + play + truck marker
+- [x] 4–6 h: HOS, edge cases (<3 routes, past departure, Unknown data, all-blocked), error/loading states
+- [x] 6–8 h: polish, README, CI
+- [x] 8–10 h: final deploy, test 3–4 real trips on prod, record Loom
+- [x] ~2 h buffer
 
 **Cut first if behind:** earliest-safe-departure finder, kg toggle, Playwright, HOS (document as limitation).

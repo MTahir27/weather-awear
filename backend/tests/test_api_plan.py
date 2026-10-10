@@ -188,6 +188,11 @@ class FailingPlanner:
     [
         (NoRouteFound("ocean"), 422, "No truck route connects these locations."),
         (ProviderUnavailable("TomTom", "timeout"), 503, "TomTom is not responding"),
+        (
+            ProviderUnavailable("Open-Meteo", "limit", status_code=429),
+            503,
+            "Open-Meteo is receiving too many requests right now. Please try again in a minute.",
+        ),
         (ProviderError("Open-Meteo", "bad shape"), 502, "Open-Meteo returned an unexpected"),
     ],
 )

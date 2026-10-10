@@ -1,5 +1,7 @@
 import { MapboxOverlay, type MapboxOverlayProps } from '@deck.gl/mapbox'
+import { setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useMemo, useRef } from 'react'
 import Map, { NavigationControl, useControl, type MapRef } from 'react-map-gl/maplibre'
 
@@ -7,6 +9,10 @@ import type { TripPlan } from '../api/schemas'
 import { boundsOf } from '../lib/geometry'
 import { RiskLegend } from './RiskLegend'
 import { buildLayers, prepareRoutes, tooltipFor } from './layers'
+
+// MapLibre builds its worker URL at runtime, which bundlers cannot detect, so
+// the worker is never emitted and tiles silently fail to load. Emit it explicitly.
+setWorkerUrl(maplibreWorkerUrl)
 
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron'
 const CONTINENTAL_US = { longitude: -98.5, latitude: 39.5, zoom: 3.3 }

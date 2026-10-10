@@ -28,9 +28,11 @@ is clear._
    the wind, rain and snow thresholds and the load rules.
 4. Routes are **ranked**: fewest No Travel, then Severe, then High miles, then lowest average
    risk, then shortest time. The recommendation explains its choice in plain English.
-5. The map shows every route, checkpoint, rest stop and risk level, plus a **weather heatmap**
-   along the corridor with a **0–48 hour forecast slider**. A truck marker shows where each
-   truck would be at the selected hour.
+5. The map shows **every route with its checkpoints and risk colours**, a **summary label on each
+   route** (distance, time and risk miles; click to select), **arrival times** along the
+   selected route and its rest stops, plus a **weather heatmap** along the corridor with a
+   **0–48 hour forecast slider**. A truck marker shows where each truck would be at the
+   selected hour.
 
 ## How the brief's open questions were answered
 
@@ -139,7 +141,7 @@ make check    # everything below, as run by the pre-commit hook and CI
 | | Tooling | Status |
 |---|---|---|
 | Backend | ruff, `mypy --strict`, pytest (warnings fail the build) | **359 tests, 100% statement + branch coverage** (95% minimum enforced) |
-| Frontend | oxlint, Prettier, `tsc` strict, Vitest + Testing Library | **127 tests** |
+| Frontend | oxlint, Prettier, `tsc` strict, Vitest + Testing Library | **138 tests** |
 | Real browser | Headless Chromium on the production build | Desktop + mobile layouts, 0 console errors, 60 fps scrubbing |
 
 Every commit passes `make check`, and CI runs the same steps on each pull request. The work was

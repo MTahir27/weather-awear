@@ -12,6 +12,11 @@ export default defineConfig({
       '/api': 'http://127.0.0.1:8000',
     },
   },
+  build: {
+    // MapLibre alone is ~1 MB minified and cannot be split further; it is
+    // lazy-loaded with the map, so it does not delay the first render.
+    chunkSizeWarningLimit: 1200,
+  },
   test: {
     environment: 'jsdom',
     globals: true,

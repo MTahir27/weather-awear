@@ -61,6 +61,20 @@ export function labelFraction(rank: number): number {
   return [0.5, 0.3, 0.7][rank - 1] ?? 0.5
 }
 
+const LABEL_STEPS_MI = [100, 200, 250, 500, 1000]
+const MAX_ETA_LABELS = 7
+
+/**
+ * Spacing between arrival-time labels: the smallest round step that keeps a
+ * route to about seven labels, so cross-country trips stay readable.
+ */
+export function etaLabelSpacing(totalMiles: number): number {
+  return (
+    LABEL_STEPS_MI.find((step) => totalMiles / step <= MAX_ETA_LABELS - 1) ??
+    LABEL_STEPS_MI[LABEL_STEPS_MI.length - 1]!
+  )
+}
+
 /**
  * Checkpoints that get an arrival-time label on the map: the origin, the first
  * checkpoint at or past every `everyMiles`, and the destination.

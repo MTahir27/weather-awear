@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import tripPlanFixture from '../test/fixtures/trip-plan.json'
-import { ApiError, planTrip, searchPlaces } from './client'
+import { ApiError, fetchHeatmap, planTrip, searchPlaces } from './client'
 import type { TripPlanRequest } from './schemas'
 
 function mockFetch(status: number, body: unknown) {
@@ -113,5 +113,34 @@ describe('searchPlaces', () => {
 
     expect(places).toEqual([{ label: 'Dallas, TX', lat: 32.78, lon: -96.8 }])
     expect(fetchSpy.mock.calls[0]?.[0]).toBe('/api/geocode?q=Dallas+%26+Fort+Worth')
+  })
+})
+
+describe('fetchHeatmap', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('posts route geometry and validates the frames', async () => {
+    const response = {
+      departure_time: '2030-01-01T08:00:00Z',
+      frame_hours: 1,
+      lat: [40],
+      lon: [-100],
+      risk: [[0]],
+      wind_score: [[0.2]],
+      rain_score: [[0]],
+      snow_score: [[null]],
+    }
+    const fetchSpy = mockFetch(200, response)
+    const body = {
+      routes: ['_p~iF~ps|U'],
+      departure_time: response.departure_time,
+      load_weight_lb: 1,
+    }
+
+    await expect(fetchHeatmap(body)).resolves.toEqual(response)
+    expect(fetchSpy.mock.calls[0]?.[0]).toBe('/api/trips/heatmap')
+    expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toEqual(body)
   })
 })

@@ -86,3 +86,32 @@ export interface TripPlanRequest {
   sample_interval_mi: 10 | 25 | 50
   hours_of_service: boolean
 }
+
+const frames = <T extends z.ZodType>(value: T) => z.array(z.array(value))
+
+export const heatmapSchema = z
+  .object({
+    departure_time: isoTime,
+    frame_hours: z.number().positive(),
+    lat: z.array(z.number()),
+    lon: z.array(z.number()),
+    risk: frames(z.number().int().min(-1).max(4)),
+    wind_score: frames(z.number().nullable()),
+    rain_score: frames(z.number().nullable()),
+    snow_score: frames(z.number().nullable()),
+  })
+  .refine(
+    (h) =>
+      h.lat.length === h.lon.length &&
+      [h.risk, h.wind_score, h.rain_score, h.snow_score].every(
+        (f) => f.length === h.risk.length && f.every((frame) => frame.length === h.lat.length),
+      ),
+    'Heatmap arrays have inconsistent sizes',
+  )
+export type HeatmapResponse = z.infer<typeof heatmapSchema>
+
+export interface HeatmapRequest {
+  routes: string[]
+  departure_time: string
+  load_weight_lb: number
+}

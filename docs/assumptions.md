@@ -73,8 +73,9 @@ Routes are compared in this order:
 - **When every route crosses No Travel conditions**, the least risky route is
   still returned, but flagged as not advised, with a suggestion to change the
   departure time.
-- Distances are compared at 0.1-mile resolution and average risk at 0.001,
-  so floating-point noise never decides a ranking.
+- Distances are compared at 0.001-mile (~1.6 m) resolution and average risk at 0.001,
+  so floating-point noise never decides a ranking, yet even a very short No
+  Travel stretch still counts.
 - The spec's order is applied strictly. "Balancing" risk and time means time
   only decides between routes whose weather risk is equal. Each recommendation
   states the deciding factor in plain English.

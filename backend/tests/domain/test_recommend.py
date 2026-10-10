@@ -135,6 +135,17 @@ def test_all_routes_blocked_is_flagged_but_still_ranked() -> None:
     assert result.explanation.startswith("Every route crosses No Travel")
 
 
+def test_short_no_travel_stretch_is_not_rounded_away() -> None:
+    # e.g. a No Travel destination owning only the last 0.04 mi of the route.
+    blocked = candidate("blocked", miles={L: 99.96, NT: 0.04})
+    clear = candidate("clear", miles={L: 90, S: 10})
+
+    result = recommend([blocked, clear])
+
+    assert result.recommended_id == "clear"
+    assert result.deciding_factor == DecidingFactor.NO_TRAVEL_MILES
+
+
 def test_float_noise_does_not_decide_ranking() -> None:
     a = candidate("a", miles={L: 100.0}, hours=10)
     b = candidate("b", miles={L: 100.0 + 1e-9}, hours=10)

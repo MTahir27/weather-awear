@@ -12,8 +12,9 @@ Routes are compared lexicographically, following the assessment's priorities:
 
 Miles whose weather is unknown count as Severe for ranking. Otherwise a route
 with missing forecasts would look safer than one with known bad weather.
-Distances are compared at 0.1-mile resolution and average risk at 0.001, so
-floating-point noise cannot decide a ranking.
+Distances are compared at 0.001-mile (~1.6 m) resolution and average risk at
+0.001, so floating-point noise cannot decide a ranking while even a very short
+No Travel stretch still counts.
 """
 
 from collections.abc import Sequence
@@ -83,7 +84,12 @@ _FACTOR_ORDER = (
 
 
 def _miles(meters: float) -> float:
-    return round(meters_to_miles(meters), 1)
+    """Comparison precision: fine enough that no real stretch rounds to zero."""
+    return round(meters_to_miles(meters), 3)
+
+
+def _display_miles(meters: float) -> str:
+    return f"{round(meters_to_miles(meters), 1):g}"
 
 
 def ranking_key(candidate: RouteCandidate) -> tuple[float, ...]:
@@ -140,7 +146,7 @@ def _deciding_factor(best: RouteCandidate, runner_up: RouteCandidate) -> Decidin
 
 def _explain(factor: DecidingFactor, best: RouteCandidate, other: RouteCandidate) -> str:
     def vs(a_m: float, b_m: float) -> str:
-        return f"{_miles(a_m):g} mi vs {_miles(b_m):g} mi on the next best route"
+        return f"{_display_miles(a_m)} mi vs {_display_miles(b_m)} mi on the next best route"
 
     match factor:
         case DecidingFactor.NO_TRAVEL_MILES:

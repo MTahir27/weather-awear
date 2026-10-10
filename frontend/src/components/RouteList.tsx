@@ -1,3 +1,5 @@
+import { memo } from 'react'
+
 import type { TripPlan } from '../api/schemas'
 import { routeName } from '../lib/routes'
 import { RecommendationBanner } from './RecommendationBanner'
@@ -9,7 +11,8 @@ interface RouteListProps {
   onSelect: (routeId: string) => void
 }
 
-export function RouteList({ plan, selectedId, onSelect }: RouteListProps) {
+/** Memoised so scrubbing the forecast slider does not re-render the route cards. */
+export const RouteList = memo(function RouteList({ plan, selectedId, onSelect }: RouteListProps) {
   const recommended = plan.routes.find((r) => r.id === plan.recommendation.route_id)
   return (
     <section aria-label="Route options" className="space-y-3">
@@ -34,4 +37,4 @@ export function RouteList({ plan, selectedId, onSelect }: RouteListProps) {
       ))}
     </section>
   )
-}
+})

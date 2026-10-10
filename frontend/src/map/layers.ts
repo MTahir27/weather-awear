@@ -3,10 +3,12 @@ import { PathLayer, ScatterplotLayer } from '@deck.gl/layers'
 
 import type { Checkpoint, Route, Stop, TripPlan } from '../api/schemas'
 import { formatDuration, formatTime } from '../lib/format'
-import { riskStretches, type LonLat, type RiskStretch } from '../lib/geometry'
+import { pointAtMile, riskStretches, type LonLat, type RiskStretch } from '../lib/geometry'
+import { visiblePoints, type HeatmapData, type HeatmapMetric } from '../lib/heatmap'
 import { decodePolyline } from '../lib/polyline'
 import { FACTOR_LABEL, riskRgb, riskStyle } from '../lib/risk'
 import { routeName } from '../lib/routes'
+import { truckProgressAt, type TruckStatus } from '../lib/truck'
 
 export interface MapRoute {
   route: Route
@@ -121,6 +123,99 @@ function value(amount: number | null, unit: string, digits = 0): string {
   return amount === null ? 'n/a' : `${amount.toFixed(digits)} ${unit}`
 }
 
+type Rgba4 = [number, number, number, number]
+const HEAT_ALPHA = 150
+const UNKNOWN_HEAT: Rgba4 = [...riskRgb(null), 90]
+const BAND_LEVELS = ['moderate', 'high', 'severe', 'no_travel'] as const
+const BAND_COLORS: Rgba4[] = BAND_LEVELS.map((level) => [...riskRgb(level), HEAT_ALPHA])
+
+/** Colour for a 0-4 score: its risk band, exactly as the legend shows it. */
+export function heatColor(score: number): Rgba4 {
+  if (Number.isNaN(score)) return UNKNOWN_HEAT
+  return BAND_COLORS[Math.min(Math.floor(score), 4) - 1] ?? [0, 0, 0, 0]
+}
+
+/**
+ * Weather heatmap: one translucent disc per corridor grid cell, sized in
+ * meters to cover the cell so neighbours merge into a continuous surface.
+ *
+ * Kernel-density heatmaps were rejected: their smoothing averages an isolated
+ * hazardous cell with calm neighbours until it disappears, hiding exactly the
+ * conditions a driver needs to see. Each cell here shows its own band.
+ */
+export function buildHeatmapLayer(
+  data: HeatmapData,
+  metric: HeatmapMetric,
+  frameIndex: number,
+): Layer {
+  const frame = data.frames[metric][frameIndex] ?? new Float32Array()
+  return new ScatterplotLayer<number>({
+    id: 'weather-heatmap',
+    data: visiblePoints(frame),
+    getPosition: (i) => data.positions[i]!,
+    getFillColor: (i) => heatColor(frame[i]!),
+    // Covers the cell's corners (half-diagonal is ~0.71 of the spacing).
+    getRadius: data.cellMeters * 0.75,
+    radiusUnits: 'meters',
+    stroked: false,
+    updateTriggers: { getFillColor: [metric, frameIndex] },
+  })
+}
+
+export interface TruckMarker {
+  name: string
+  selected: boolean
+  position: LonLat
+  status: TruckStatus
+  mile: number
+}
+
+export function truckMarkers(
+  routes: MapRoute[],
+  selectedId: string,
+  departureMs: number,
+  atMs: number,
+): TruckMarker[] {
+  return routes.map((r) => {
+    const progress = truckProgressAt(r.route, departureMs, atMs)
+    return {
+      name: r.name,
+      selected: r.route.id === selectedId,
+      position: pointAtMile(r.path, r.route.distance_mi, progress.mile),
+      status: progress.status,
+      mile: progress.mile,
+    }
+  })
+}
+
+export function buildTruckLayer(trucks: TruckMarker[]): Layer {
+  return new ScatterplotLayer<TruckMarker>({
+    id: 'trucks',
+    // Draw the selected route's truck last so it sits on top.
+    data: [...trucks].sort((a, b) => Number(a.selected) - Number(b.selected)),
+    getPosition: (d) => d.position,
+    getFillColor: (d) => (d.selected ? [2, 132, 199, 255] : [100, 116, 139, 220]),
+    getLineColor: [255, 255, 255, 255],
+    getRadius: (d) => (d.selected ? 10 : 7),
+    radiusUnits: 'pixels',
+    lineWidthUnits: 'pixels',
+    getLineWidth: 3,
+    stroked: true,
+    pickable: true,
+  })
+}
+
+const STATUS_LABEL: Record<TruckStatus, string> = {
+  waiting: 'Not departed yet',
+  driving: 'Driving',
+  resting: 'Resting',
+  arrived: 'Arrived',
+}
+
+export function truckTooltip(t: TruckMarker): string {
+  return `<div class="font-semibold">${escape(t.name)} truck</div><div>${STATUS_LABEL[t.status]} · mile ${Math.round(t.mile)}</div>`
+}
+
 export function checkpointTooltip(c: Checkpoint): string {
   const style = riskStyle(c.level)
   const cause = c.drivers.length
@@ -149,6 +244,7 @@ export function tooltipFor(info: PickingInfo): { html: string; className: string
   let html: string | null = null
   if (layer.id === 'checkpoints') html = checkpointTooltip(object as Checkpoint)
   else if (layer.id === 'rest-stops') html = stopTooltip(object as Stop)
+  else if (layer.id === 'trucks') html = truckTooltip(object as TruckMarker)
   else if (layer.id === 'alternative-routes')
     html = `<div class="font-semibold">${escape((object as MapRoute).name)}</div><div>Click to select</div>`
   return html ? { html, className: 'map-tooltip' } : null

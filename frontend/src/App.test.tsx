@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -10,12 +10,32 @@ import { renderWithQuery } from './test/render'
 
 // WebGL is unavailable in jsdom; the map is covered by its own layer tests.
 vi.mock('./map/TripMap', () => ({
-  default: ({ selectedId }: { selectedId: string }) => (
-    <div data-testid="map">selected: {selectedId}</div>
+  default: ({
+    selectedId,
+    frame,
+    heatmap,
+  }: {
+    selectedId: string
+    frame: number
+    heatmap: unknown
+  }) => (
+    <div data-testid="map">
+      selected: {selectedId} frame: {frame} heatmap: {heatmap ? 'yes' : 'no'}
+    </div>
   ),
 }))
 
 const PLAN = tripPlanSchema.parse(tripPlanFixture)
+const HEATMAP = {
+  departure_time: PLAN.departure_time,
+  frame_hours: 1,
+  lat: [32],
+  lon: [-96],
+  risk: Array.from({ length: 49 }, () => [1]),
+  wind_score: Array.from({ length: 49 }, () => [1.2]),
+  rain_score: Array.from({ length: 49 }, () => [0]),
+  snow_score: Array.from({ length: 49 }, () => [0]),
+}
 
 async function fillAndSubmit() {
   const user = userEvent.setup()
@@ -30,6 +50,7 @@ async function fillAndSubmit() {
 
 describe('App', () => {
   beforeEach(() => {
+    vi.spyOn(client, 'fetchHeatmap').mockResolvedValue(HEATMAP)
     vi.spyOn(client, 'searchPlaces').mockImplementation(async (query) =>
       query.toLowerCase().startsWith('dal')
         ? [{ label: 'Dallas, TX', lat: 32.78, lon: -96.8 }]
@@ -52,6 +73,32 @@ describe('App', () => {
 
     await user.click(screen.getAllByRole('button', { name: /Route B/ })[0]!)
     expect(screen.getByTestId('map')).toHaveTextContent(`selected: ${PLAN.routes[1]!.id}`)
+  })
+
+  it('loads the heatmap for the plan and scrubs or plays through the forecast', async () => {
+    vi.spyOn(client, 'planTrip').mockResolvedValue(PLAN)
+    renderWithQuery(<App />)
+
+    const user = await fillAndSubmit()
+
+    await screen.findByText(/heatmap: yes/)
+    expect(client.fetchHeatmap).toHaveBeenCalledWith(
+      {
+        routes: PLAN.routes.map((r) => r.geometry),
+        departure_time: PLAN.departure_time,
+        load_weight_lb: PLAN.load_weight_lb,
+      },
+      expect.any(AbortSignal),
+    )
+
+    const slider = screen.getByRole('slider', { name: 'Forecast time' })
+    expect(slider).toBeEnabled()
+    fireEvent.change(slider, { target: { value: '10' } })
+    expect(screen.getByTestId('map')).toHaveTextContent('frame: 10')
+
+    await user.click(screen.getByRole('button', { name: 'Play forecast' }))
+    await waitFor(() => expect(screen.getByTestId('map')).toHaveTextContent('frame: 11'))
+    await user.click(screen.getByRole('button', { name: 'Pause' }))
   })
 
   it('shows a loading state while planning', async () => {

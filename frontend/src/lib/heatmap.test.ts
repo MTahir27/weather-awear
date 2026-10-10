@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { heatmapSchema, type HeatmapResponse } from '../api/schemas'
-import { knownPoints, prepareHeatmap } from './heatmap'
+import { gridCellMeters, prepareHeatmap, visiblePoints } from './heatmap'
 
 const RESPONSE: HeatmapResponse = {
   departure_time: '2030-01-01T08:00:00Z',
@@ -66,10 +66,21 @@ describe('prepareHeatmap', () => {
     expect(data.frames.snow[1]![1]).toBeCloseTo(3.2)
   })
 
-  it('lists only points with data', () => {
+  it('shows Moderate-or-worse and unknown points, omitting Low', () => {
     const data = prepareHeatmap(RESPONSE)
 
-    expect(Array.from(knownPoints(data.frames.risk[0]!))).toEqual([0])
-    expect(Array.from(knownPoints(data.frames.risk[1]!))).toEqual([0, 1])
+    expect(visiblePoints(data.frames.risk[0]!)).toEqual([1])
+    expect(visiblePoints(data.frames.risk[1]!)).toEqual([0, 1])
+    expect(visiblePoints(data.frames.wind[1]!)).toEqual([0, 1])
+  })
+})
+
+describe('gridCellMeters', () => {
+  it('measures the regular grid spacing from latitudes', () => {
+    expect(gridCellMeters([40.05, 40.15, 40.05, 40.25])).toBeCloseTo(0.1 * 111_195)
+  })
+
+  it('falls back for a single row of points', () => {
+    expect(gridCellMeters([40, 40])).toBe(10_000)
   })
 })

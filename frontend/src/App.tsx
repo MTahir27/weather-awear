@@ -1,11 +1,15 @@
-import { useMutation } from '@tanstack/react-query'
-import { lazy, Suspense, useCallback, useState } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 
-import { ApiError, planTrip } from './api/client'
+import { ApiError, fetchHeatmap, planTrip } from './api/client'
 import type { TripPlan, TripPlanRequest } from './api/schemas'
 import { RouteList } from './components/RouteList'
+import { TimeControls, type MetricChoice } from './components/TimeControls'
 import { TripForm } from './components/TripForm'
 import { serverErrorsToForm } from './components/tripFormValidation'
+import { prepareHeatmap } from './lib/heatmap'
+
+const PLAYBACK_MS_PER_HOUR = 400
 
 // The map (MapLibre + deck.gl) is the bulk of the bundle; load it separately.
 const TripMap = lazy(() => import('./map/TripMap'))
@@ -24,17 +28,59 @@ function LoadingRoutes() {
   )
 }
 
+function useHeatmap(plan: TripPlan | null) {
+  return useQuery({
+    queryKey: [
+      'heatmap',
+      plan?.departure_time,
+      plan?.load_weight_lb,
+      plan?.routes.map((r) => r.geometry),
+    ],
+    queryFn: async ({ signal }) => {
+      if (!plan) throw new Error('No plan')
+      const response = await fetchHeatmap(
+        {
+          routes: plan.routes.map((r) => r.geometry),
+          departure_time: plan.departure_time,
+          load_weight_lb: plan.load_weight_lb,
+        },
+        signal,
+      )
+      // Converted once; scrubbing then only indexes into typed arrays.
+      return prepareHeatmap(response)
+    },
+    enabled: plan !== null,
+    staleTime: Infinity,
+  })
+}
+
 export default function App() {
   const [plan, setPlan] = useState<TripPlan | null>(null)
   const [selectedId, setSelectedId] = useState('')
+  const [frame, setFrame] = useState(0)
+  const [metric, setMetric] = useState<MetricChoice>('risk')
+  const [playing, setPlaying] = useState(false)
 
   const mutation = useMutation({
     mutationFn: (request: TripPlanRequest) => planTrip(request),
     onSuccess: (result) => {
       setPlan(result)
       setSelectedId(result.recommendation.route_id)
+      setFrame(0)
+      setPlaying(false)
     },
   })
+  const heatmapQuery = useHeatmap(plan)
+  const heatmap = heatmapQuery.data ?? null
+  const frameCount = heatmap?.frameCount ?? 49
+
+  // Playback advances one hour per tick and stops on the last frame.
+  const isPlaying = playing && frame < frameCount - 1
+  useEffect(() => {
+    if (!isPlaying) return
+    const timer = setTimeout(() => setFrame(frame + 1), PLAYBACK_MS_PER_HOUR)
+    return () => clearTimeout(timer)
+  }, [isPlaying, frame])
   const error = mutation.error
   const fieldErrors = error instanceof ApiError ? serverErrorsToForm(error.fieldErrors) : {}
   const hasFieldErrors = Object.keys(fieldErrors).length > 0
@@ -75,10 +121,37 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="order-1 h-[45vh] min-h-[280px] lg:order-2 lg:h-full lg:flex-1">
+      <main className="relative order-1 h-[55vh] min-h-[320px] lg:order-2 lg:h-full lg:flex-1">
         <Suspense fallback={<div className="h-full w-full animate-pulse bg-slate-200" />}>
-          <TripMap plan={plan} selectedId={selectedId} onSelectRoute={selectRoute} />
+          <TripMap
+            plan={plan}
+            selectedId={selectedId}
+            onSelectRoute={selectRoute}
+            heatmap={heatmap}
+            metric={metric}
+            frame={frame}
+          />
         </Suspense>
+        {plan && (
+          <div className="absolute inset-x-3 bottom-8 mx-auto max-w-xl">
+            <TimeControls
+              departureMs={Date.parse(plan.departure_time)}
+              frameMs={heatmap?.frameMs ?? 3600_000}
+              frameCount={frameCount}
+              frame={frame}
+              onFrame={(next) => {
+                setPlaying(false)
+                setFrame(next)
+              }}
+              playing={isPlaying}
+              onPlayingChange={setPlaying}
+              metric={metric}
+              onMetric={setMetric}
+              status={heatmapQuery.isError ? 'error' : heatmap ? 'ready' : 'loading'}
+              onRetry={() => void heatmapQuery.refetch()}
+            />
+          </div>
+        )}
       </main>
     </div>
   )

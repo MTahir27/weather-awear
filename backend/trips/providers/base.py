@@ -10,6 +10,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 
+from trips.domain.forecast import HourlySeries
 from trips.domain.geo import LatLon
 
 
@@ -55,3 +56,11 @@ class RoutingProvider(Protocol):
         via: Sequence[LatLon] = (),
         avoid: Sequence[Avoid] = (),
     ) -> list[ProviderRoute]: ...
+
+
+class WeatherProvider(Protocol):
+    def hourly(
+        self, locations: Sequence[LatLon], start: datetime, end: datetime
+    ) -> list[HourlySeries]:
+        """Hourly forecasts covering [start, end], one per location, in input order."""
+        ...

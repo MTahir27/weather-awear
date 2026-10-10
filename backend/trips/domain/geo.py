@@ -71,3 +71,27 @@ def point_at_distance(
     span = cumulative_m[upper] - cumulative_m[lower]
     fraction = (distance_m - cumulative_m[lower]) / span if span > 0 else 0.0
     return interpolate(points[lower], points[upper], fraction)
+
+
+def initial_bearing_deg(a: LatLon, b: LatLon) -> float:
+    """Compass bearing (0-360°, clockwise from north) from `a` towards `b`."""
+    lat1, lat2 = math.radians(a.lat), math.radians(b.lat)
+    d_lon = math.radians(b.lon - a.lon)
+    x = math.sin(d_lon) * math.cos(lat2)
+    y = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(d_lon)
+    return math.degrees(math.atan2(x, y)) % 360
+
+
+def destination_point(start: LatLon, bearing_deg: float, distance_m: float) -> LatLon:
+    """Point reached by travelling `distance_m` from `start` along a great circle."""
+    angular = distance_m / EARTH_RADIUS_M
+    bearing = math.radians(bearing_deg)
+    lat1, lon1 = math.radians(start.lat), math.radians(start.lon)
+    lat2 = math.asin(
+        math.sin(lat1) * math.cos(angular) + math.cos(lat1) * math.sin(angular) * math.cos(bearing)
+    )
+    lon2 = lon1 + math.atan2(
+        math.sin(bearing) * math.sin(angular) * math.cos(lat1),
+        math.cos(angular) - math.sin(lat1) * math.sin(lat2),
+    )
+    return LatLon(math.degrees(lat2), (math.degrees(lon2) + 540) % 360 - 180)

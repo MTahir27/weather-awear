@@ -5,7 +5,9 @@ import pytest
 from trips.domain.geo import (
     LatLon,
     cumulative_distances_m,
+    destination_point,
     haversine_m,
+    initial_bearing_deg,
     meters_to_miles,
     miles_to_meters,
     point_at_distance,
@@ -84,3 +86,34 @@ class TestPointAtDistance:
     def test_rejects_mismatched_inputs(self) -> None:
         with pytest.raises(ValueError, match="same length"):
             point_at_distance(self.points, [0.0], 10)
+
+
+@pytest.mark.parametrize(
+    ("target", "expected"),
+    [
+        (LatLon(1, 0), 0),
+        (LatLon(0, 1), 90),
+        (LatLon(-1, 0), 180),
+        (LatLon(0, -1), 270),
+    ],
+)
+def test_initial_bearing_cardinal_directions(target: LatLon, expected: float) -> None:
+    assert initial_bearing_deg(LatLon(0, 0), target) == pytest.approx(expected)
+
+
+def test_initial_bearing_denver_to_chicago_is_east_north_east() -> None:
+    assert 70 < initial_bearing_deg(DENVER, CHICAGO) < 85
+
+
+@pytest.mark.parametrize("bearing", [0, 45, 90, 200, 315])
+def test_destination_point_travels_requested_distance(bearing: float) -> None:
+    end = destination_point(DENVER, bearing, 50_000)
+
+    assert haversine_m(DENVER, end) == pytest.approx(50_000, rel=1e-6)
+    assert initial_bearing_deg(DENVER, end) == pytest.approx(bearing, abs=1e-6)
+
+
+def test_destination_point_wraps_longitude_across_antimeridian() -> None:
+    end = destination_point(LatLon(0, 179.9), 90, 50_000)
+
+    assert -180 <= end.lon < -179

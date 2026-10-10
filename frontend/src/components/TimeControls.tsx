@@ -15,6 +15,8 @@ interface TimeControlsProps {
   onMetric: (metric: MetricChoice) => void
   status: 'loading' | 'error' | 'ready'
   onRetry: () => void
+  /** Where the selected route's truck is at this time (see truckStatusText). */
+  truckStatus?: string
 }
 
 const CHOICES: MetricChoice[] = [...HEATMAP_METRICS, 'off']
@@ -31,6 +33,7 @@ export function TimeControls({
   onMetric,
   status,
   onRetry,
+  truckStatus,
 }: TimeControlsProps) {
   const hours = Math.round((frame * frameMs) / 3600_000)
   const time = formatTime(new Date(departureMs + frame * frameMs).toISOString())
@@ -82,6 +85,12 @@ export function TimeControls({
             aria-valuetext={`${hours} hours after departure, ${time}`}
             className="mt-1 w-full accent-sky-600"
           />
+          {truckStatus && (
+            <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-600">
+              <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-sky-600" />
+              <span>{truckStatus}</span>
+            </p>
+          )}
         </div>
       </div>
 

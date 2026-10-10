@@ -8,7 +8,10 @@ import { RouteList } from './components/RouteList'
 import { TimeControls, type MetricChoice } from './components/TimeControls'
 import { TripForm } from './components/TripForm'
 import { serverErrorsToForm } from './components/tripFormValidation'
+import { formatTime } from './lib/format'
 import { prepareHeatmap } from './lib/heatmap'
+import { routeName } from './lib/routes'
+import { truckProgressAt, truckStatusText } from './lib/truck'
 
 const PLAYBACK_MS_PER_HOUR = 400
 
@@ -86,6 +89,21 @@ export default function App() {
   const fieldErrors = error instanceof ApiError ? serverErrorsToForm(error.fieldErrors) : {}
   const hasFieldErrors = Object.keys(fieldErrors).length > 0
 
+  const selectedRoute = plan?.routes.find((r) => r.id === selectedId)
+  const departureMs = plan ? Date.parse(plan.departure_time) : 0
+  const frameMs = heatmap?.frameMs ?? 3600_000
+  const truckStatus =
+    plan && selectedRoute
+      ? truckStatusText({
+          routeName: routeName(selectedRoute.rank),
+          progress: truckProgressAt(selectedRoute, departureMs, departureMs + frame * frameMs),
+          totalMiles: selectedRoute.distance_mi,
+          arrivalIso: selectedRoute.arrival_time,
+          windowEndMs: departureMs + (frameCount - 1) * frameMs,
+          formatTime,
+        })
+      : undefined
+
   const selectRoute = useCallback((routeId: string) => setSelectedId(routeId), [])
 
   return (
@@ -143,8 +161,8 @@ export default function App() {
         {plan && (
           <div className="absolute inset-x-2 bottom-2 mx-auto max-w-xl sm:inset-x-3 sm:bottom-8">
             <TimeControls
-              departureMs={Date.parse(plan.departure_time)}
-              frameMs={heatmap?.frameMs ?? 3600_000}
+              departureMs={departureMs}
+              frameMs={frameMs}
               frameCount={frameCount}
               frame={frame}
               onFrame={(next) => {
@@ -157,6 +175,7 @@ export default function App() {
               onMetric={setMetric}
               status={heatmapQuery.isError ? 'error' : heatmap ? 'ready' : 'loading'}
               onRetry={() => void heatmapQuery.refetch()}
+              truckStatus={truckStatus}
             />
           </div>
         )}

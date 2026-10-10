@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Route } from '../api/schemas'
 import { pointAtMile } from './geometry'
-import { truckProgressAt } from './truck'
+import { truckProgressAt, truckStatusText } from './truck'
 
 const H = 3600_000
 const DEPART = Date.UTC(2030, 0, 1, 8)
@@ -82,5 +82,35 @@ describe('pointAtMile', () => {
 
   it('rejects an empty path', () => {
     expect(() => pointAtMile([], 1, 0)).toThrow('empty')
+  })
+})
+
+describe('truckStatusText', () => {
+  const base = {
+    routeName: 'Route A',
+    totalMiles: 3135,
+    arrivalIso: '2030-01-04T17:00:00Z',
+    windowEndMs: Date.UTC(2030, 0, 3, 8),
+    formatTime: () => 'Fri 5:00 PM',
+  }
+
+  it('explains a truck still on the road when the slider window ends', () => {
+    expect(truckStatusText({ ...base, progress: { mile: 1240.4, status: 'driving' } })).toBe(
+      'Route A truck: driving · mile 1,240 of 3,135 · arrives Fri 5:00 PM (after the 48 h forecast window)',
+    )
+  })
+
+  it('describes stops, waiting and arrival', () => {
+    const inWindow = { ...base, windowEndMs: Date.UTC(2030, 0, 9) }
+
+    expect(truckStatusText({ ...inWindow, progress: { mile: 550, status: 'resting' } })).toBe(
+      'Route A truck: stopped for a break or rest · mile 550 of 3,135 · arrives Fri 5:00 PM',
+    )
+    expect(truckStatusText({ ...inWindow, progress: { mile: 0, status: 'waiting' } })).toBe(
+      'Route A truck: not departed yet · arrives Fri 5:00 PM',
+    )
+    expect(truckStatusText({ ...inWindow, progress: { mile: 3135, status: 'arrived' } })).toBe(
+      'Route A truck: arrived Fri 5:00 PM',
+    )
   })
 })

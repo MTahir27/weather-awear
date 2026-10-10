@@ -95,3 +95,11 @@ describe('TimeControls', () => {
     expect(props.onRetry).toHaveBeenCalled()
   })
 })
+
+describe('TimeControls truck status', () => {
+  it('shows where the selected truck is', () => {
+    setup({ truckStatus: 'Route A truck: driving · mile 1,240 of 3,135' })
+
+    expect(screen.getByText('Route A truck: driving · mile 1,240 of 3,135')).toBeInTheDocument()
+  })
+})

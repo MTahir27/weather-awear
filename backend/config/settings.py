@@ -64,6 +64,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "plan": os.environ.get("THROTTLE_PLAN_RATE", "20/min"),
         "geocode": os.environ.get("THROTTLE_GEOCODE_RATE", "120/min"),
+        "heatmap": os.environ.get("THROTTLE_HEATMAP_RATE", "20/min"),
     },
     # Behind Vercel's proxy the client IP is the last X-Forwarded-For entry.
     "NUM_PROXIES": int(os.environ.get("DJANGO_NUM_PROXIES", "0")) or None,

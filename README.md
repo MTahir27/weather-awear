@@ -141,7 +141,7 @@ make check    # everything below, as run by the pre-commit hook and CI
 | | Tooling | Status |
 |---|---|---|
 | Backend | ruff, `mypy --strict`, pytest (warnings fail the build) | **359 tests, 100% statement + branch coverage** (95% minimum enforced) |
-| Frontend | oxlint, Prettier, `tsc` strict, Vitest + Testing Library | **138 tests** |
+| Frontend | oxlint, Prettier, `tsc` strict, Vitest + Testing Library | **152 tests** |
 | Real browser | Headless Chromium on the production build | Desktop + mobile layouts, 0 console errors, 60 fps scrubbing |
 
 Every commit passes `make check`, and CI runs the same steps on each pull request. The work was

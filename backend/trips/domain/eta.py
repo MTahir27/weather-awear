@@ -6,7 +6,7 @@ stretches and expected traffic at departure time, so ETAs at checkpoints are
 interpolated between anchors rather than derived from an average speed.
 """
 
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -66,3 +66,21 @@ class TimeProfile:
             self.distances_m[upper] - self.distances_m[lower]
         )
         return self.seconds[lower] + fraction * (self.seconds[upper] - self.seconds[lower])
+
+    def distance_at(self, seconds: float) -> float:
+        """Distance reached after `seconds` of driving, clamped to the route's extent.
+
+        Where several anchors share the same time, the first distance at which
+        that time is reached is returned.
+        """
+        if seconds <= 0:
+            return 0.0
+        if seconds >= self.total_seconds:
+            return self.total_distance_m
+
+        upper = bisect_left(self.seconds, seconds)
+        lower = upper - 1
+        fraction = (seconds - self.seconds[lower]) / (self.seconds[upper] - self.seconds[lower])
+        return self.distances_m[lower] + fraction * (
+            self.distances_m[upper] - self.distances_m[lower]
+        )

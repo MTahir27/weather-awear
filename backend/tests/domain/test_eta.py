@@ -67,3 +67,30 @@ def test_rejects_invalid_profiles(anchors: list[tuple[float, float]], message: s
 def test_rejects_mismatched_series() -> None:
     with pytest.raises(ValueError, match="matching"):
         TimeProfile((0.0, 1.0), (0.0,))
+
+
+@pytest.mark.parametrize(
+    ("seconds", "expected_m"),
+    [
+        (0, 0),
+        (300, 5_000),
+        (600, 10_000),
+        (2_400, 60_000),
+        (4_200, 110_000),
+    ],
+)
+def test_distance_at_inverts_seconds_at(seconds: float, expected_m: float) -> None:
+    assert PROFILE.distance_at(seconds) == pytest.approx(expected_m)
+    assert PROFILE.seconds_at(PROFILE.distance_at(seconds)) == pytest.approx(seconds)
+
+
+def test_distance_at_clamps_outside_the_route() -> None:
+    assert PROFILE.distance_at(-1) == 0
+    assert PROFILE.distance_at(1e9) == 110_000
+
+
+def test_distance_at_returns_first_distance_for_repeated_times() -> None:
+    profile = TimeProfile.from_anchors([(0, 0), (1_000, 60), (2_000, 60), (3_000, 120)])
+
+    assert profile.distance_at(60) == 1_000
+    assert profile.distance_at(90) == pytest.approx(2_500)

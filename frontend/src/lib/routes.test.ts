@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { etaLabelCheckpoints, labelFraction, riskSummary } from './routes'
+import { etaLabelCheckpoints, labelFraction, riskBreakdown, riskSummary } from './routes'
 
 const risk = (miles: Partial<Record<string, number>>, unknown = 0) => ({
   miles_by_level: { low: 100, moderate: 0, high: 0, severe: 0, no_travel: 0, ...miles },
@@ -48,5 +48,25 @@ describe('etaLabelCheckpoints', () => {
     ).toEqual([0, 150, 260])
     expect(etaLabelCheckpoints([{ mile: 0 }, { mile: 40 }]).map((c) => c.mile)).toEqual([0, 40])
     expect(etaLabelCheckpoints([])).toEqual([])
+  })
+})
+
+describe('riskBreakdown', () => {
+  it('is empty when the whole route is Low', () => {
+    expect(riskBreakdown(risk({}))).toEqual([])
+  })
+
+  it('lists only the levels the route reaches, worst first, including Moderate', () => {
+    expect(
+      riskBreakdown(risk({ moderate: 30, no_travel: 50 }, 2)).map((i) => [i.label, i.miles]),
+    ).toEqual([
+      ['No Travel', 50],
+      ['Moderate', 30],
+      ['Unknown', 2],
+    ])
+  })
+
+  it('ignores distances that would display as 0 mi', () => {
+    expect(riskBreakdown(risk({ high: 0.01 }))).toEqual([])
   })
 })

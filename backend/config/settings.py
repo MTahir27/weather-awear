@@ -60,7 +60,18 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [],
     "DEFAULT_PERMISSION_CLASSES": [],
     "UNAUTHENTICATED_USER": None,
+    # Per-client limits protect the third-party API quotas.
+    "DEFAULT_THROTTLE_RATES": {
+        "plan": os.environ.get("THROTTLE_PLAN_RATE", "20/min"),
+        "geocode": os.environ.get("THROTTLE_GEOCODE_RATE", "120/min"),
+    },
+    # Behind Vercel's proxy the client IP is the last X-Forwarded-For entry.
+    "NUM_PROXIES": int(os.environ.get("DJANGO_NUM_PROXIES", "0")) or None,
 }
+
+# Per-instance memory cache (throttle counters, geocoding results). The API
+# stays stateless; a cold start simply begins with an empty cache.
+CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
 
 # Vercel terminates TLS in front of the function.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

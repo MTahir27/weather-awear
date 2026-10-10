@@ -45,11 +45,11 @@ def test_returns_column_oriented_frames(client: Client, builder: HeatmapBuilder)
     assert len(body["lon"]) == points
     assert body["frame_hours"] == 1
     assert body["departure_time"].endswith("Z")
-    for key in ("risk", "wind_mph", "rain_in_per_hr", "snow_in_per_hr"):
+    for key in ("risk", "wind_score", "rain_score", "snow_score"):
         assert len(body[key]) == 49
         assert all(len(frame) == points for frame in body[key])
     assert set(body["risk"][0]) == {0}
-    assert body["wind_mph"][0][0] == 5.0
+    assert body["wind_score"][0][0] == 0.2  # 5 mph is a fifth of the way to Moderate
 
 
 @pytest.mark.parametrize(

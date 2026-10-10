@@ -28,7 +28,7 @@ def test_builds_one_frame_per_hour_including_departure() -> None:
     assert heatmap.frame_count == 49
     assert len(heatmap.points) > 0
     assert all(len(frame) == len(heatmap.points) for frame in heatmap.risk)
-    assert all(len(frame) == len(heatmap.points) for frame in heatmap.wind_mph)
+    assert all(len(frame) == len(heatmap.points) for frame in heatmap.wind_score)
     # One batched forecast request spanning the whole window.
     assert len(fake.calls) == 1
     assert fake.calls[0]["start"] == DEPART
@@ -45,7 +45,7 @@ def test_frames_follow_the_forecast_over_time() -> None:
 
     assert set(heatmap.risk[0]) == {int(RiskLevel.LOW)}
     assert set(heatmap.risk[10]) == {int(RiskLevel.SEVERE)}
-    assert heatmap.rain_in_per_hr[10][0] == pytest.approx(0.6)
+    assert heatmap.rain_score[10][0] == pytest.approx(3.2)  # 0.6 in/hr: 20% into Severe
 
 
 def test_load_rules_apply_to_heatmap_risk() -> None:
@@ -64,7 +64,7 @@ def test_hours_beyond_the_forecast_are_unknown() -> None:
 
     assert UNKNOWN_LEVEL not in heatmap.risk[0]
     assert set(heatmap.risk[48]) == {UNKNOWN_LEVEL}
-    assert heatmap.wind_mph[48][0] is None
+    assert heatmap.wind_score[48][0] is None
 
 
 def test_no_routes_gives_empty_frames_without_fetching() -> None:

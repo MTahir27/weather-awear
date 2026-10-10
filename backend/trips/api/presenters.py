@@ -117,7 +117,7 @@ def present_heatmap(heatmap: Heatmap) -> dict[str, Any]:
         "lat": [round(p.lat, 4) for p in heatmap.points],
         "lon": [round(p.lon, 4) for p in heatmap.points],
         "risk": heatmap.risk,
-        "wind_mph": frames(heatmap.wind_mph, 1),
-        "rain_in_per_hr": frames(heatmap.rain_in_per_hr, 3),
-        "snow_in_per_hr": frames(heatmap.snow_in_per_hr, 3),
+        "wind_score": frames(heatmap.wind_score, 2),
+        "rain_score": frames(heatmap.rain_score, 2),
+        "snow_score": frames(heatmap.snow_score, 2),
     }

@@ -12,7 +12,13 @@ from datetime import datetime, timedelta
 
 from trips.domain.corridor import corridor_points
 from trips.domain.geo import LatLon
-from trips.domain.risk import classify
+from trips.domain.risk import (
+    RAIN_IN_PER_HR_THRESHOLDS,
+    SNOW_IN_PER_HR_THRESHOLDS,
+    WIND_MPH_THRESHOLDS,
+    classify,
+    factor_score,
+)
 from trips.providers.base import WeatherProvider
 
 HEATMAP_HOURS = 48
@@ -32,10 +38,11 @@ class Heatmap:
     depart_at: datetime
     points: tuple[LatLon, ...]
     risk: list[list[int]]
-    """[frame][point] risk level 0-4, or -1 where the forecast is unavailable."""
-    wind_mph: list[list[float | None]]
-    rain_in_per_hr: list[list[float | None]]
-    snow_in_per_hr: list[list[float | None]]
+    """[frame][point] overall risk level 0-4 (load rules applied), or -1 if unknown."""
+    wind_score: list[list[float | None]]
+    """[frame][point] continuous 0-4 score for wind alone (see factor_score); likewise below."""
+    rain_score: list[list[float | None]]
+    snow_score: list[list[float | None]]
 
     @property
     def frame_count(self) -> int:
@@ -59,15 +66,19 @@ class HeatmapBuilder:
             samples = [series.sample_at(t.timestamp()) for series in forecasts]
             levels = [classify(s, request.load_lb).level for s in samples]
             risk.append([UNKNOWN_LEVEL if lvl is None else int(lvl) for lvl in levels])
-            wind.append([s.wind_mph for s in samples])
-            rain.append([s.rain_in_per_hr for s in samples])
-            snow.append([s.snow_in_per_hr for s in samples])
+            wind.append([factor_score(s.wind_mph, WIND_MPH_THRESHOLDS) for s in samples])
+            rain.append(
+                [factor_score(s.rain_in_per_hr, RAIN_IN_PER_HR_THRESHOLDS) for s in samples]
+            )
+            snow.append(
+                [factor_score(s.snow_in_per_hr, SNOW_IN_PER_HR_THRESHOLDS) for s in samples]
+            )
 
         return Heatmap(
             depart_at=request.depart_at,
             points=tuple(points),
             risk=risk,
-            wind_mph=wind,
-            rain_in_per_hr=rain,
-            snow_in_per_hr=snow,
+            wind_score=wind,
+            rain_score=rain,
+            snow_score=snow,
         )

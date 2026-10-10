@@ -49,3 +49,14 @@ export function defaultDeparture(now: Date = new Date(), leadMinutes = 15): Date
   if (remainder) date.setMinutes(date.getMinutes() + 15 - remainder)
   return date
 }
+
+const clockFormat = new Intl.DateTimeFormat(undefined, {
+  weekday: 'short',
+  hour: 'numeric',
+  minute: '2-digit',
+})
+
+/** Compact local time for map labels, e.g. "Sun 3:15 PM" (time zone shown elsewhere). */
+export function formatClock(iso: string): string {
+  return clockFormat.format(new Date(iso))
+}

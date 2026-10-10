@@ -220,3 +220,16 @@ def test_malformed_routes_raise_provider_error(
 def test_requires_api_key() -> None:
     with pytest.raises(ValueError, match="API key"):
         TomTomRouter("")
+
+
+@respx.mock
+def test_slow_route_calculations_get_a_longer_timeout_and_one_retry(router: TomTomRouter) -> None:
+    import httpx
+
+    api = respx.get(url__startswith=ROUTING).mock(side_effect=httpx.ReadTimeout("slow"))
+
+    with pytest.raises(ProviderError):
+        router.truck_routes(DENVER, CHICAGO, depart_at=future(), gross_weight_kg=1)
+
+    assert api.call_count == 2
+    assert api.calls.last.request.extensions["timeout"]["read"] == 20.0

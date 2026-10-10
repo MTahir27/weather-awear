@@ -29,3 +29,59 @@ export function riskSegments(risk: Route['risk']): RiskSegment[] {
   })
   return segments.filter((s) => s.miles > 0)
 }
+
+const FLAGGED_LEVELS = [
+  ['no_travel', 'No Travel'],
+  ['severe', 'Severe'],
+  ['high', 'High'],
+] as const
+
+/**
+ * Short risk summary for a route label: miles at the levels that decide the
+ * ranking (e.g. "High 25 mi"), Moderate miles when nothing worse exists, or
+ * "All Low".
+ */
+export function riskSummary(risk: Route['risk']): string {
+  const parts: string[] = FLAGGED_LEVELS.flatMap(([level, label]) => {
+    const miles = Math.round(risk.miles_by_level[level] ?? 0)
+    return miles > 0 ? [`${label} ${miles} mi`] : []
+  })
+  const unknown = Math.round(risk.unknown_mi)
+  if (unknown > 0) parts.push(`Unknown ${unknown} mi`)
+  if (parts.length) return parts.join(' · ')
+  const moderate = Math.round(risk.miles_by_level.moderate ?? 0)
+  return moderate > 0 ? `Moderate ${moderate} mi` : 'All Low'
+}
+
+/**
+ * Where along each route its label sits (fraction of the distance), by rank.
+ * Routes share their ends, so labels are staggered to keep them apart.
+ */
+export function labelFraction(rank: number): number {
+  return [0.5, 0.3, 0.7][rank - 1] ?? 0.5
+}
+
+/**
+ * Checkpoints that get an arrival-time label on the map: the origin, the first
+ * checkpoint at or past every `everyMiles`, and the destination.
+ */
+export function etaLabelCheckpoints<T extends { mile: number }>(
+  checkpoints: T[],
+  everyMiles = 100,
+): T[] {
+  const chosen: T[] = []
+  let nextMile = 0
+  for (const checkpoint of checkpoints) {
+    if (checkpoint.mile >= nextMile) {
+      chosen.push(checkpoint)
+      nextMile = (Math.floor(checkpoint.mile / everyMiles) + 1) * everyMiles
+    }
+  }
+  const last = checkpoints.at(-1)
+  if (last && chosen.at(-1) !== last) {
+    // Avoid two labels crowding the destination.
+    if (chosen.length > 1 && last.mile - chosen.at(-1)!.mile < everyMiles / 2) chosen.pop()
+    chosen.push(last)
+  }
+  return chosen
+}

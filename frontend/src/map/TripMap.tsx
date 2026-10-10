@@ -15,6 +15,7 @@ import type { MetricChoice } from '../components/TimeControls'
 import { boundsOf } from '../lib/geometry'
 import type { HeatmapData } from '../lib/heatmap'
 import { RiskLegend } from './RiskLegend'
+import { RouteLabels } from './RouteLabels'
 import {
   buildHeatmapLayer,
   buildLayers,
@@ -97,6 +98,7 @@ export default function TripMap({
         {/* Top-right keeps the required attribution clear of the time controls. */}
         <AttributionControl position="top-right" compact />
         <DeckOverlay layers={layers} getTooltip={tooltipFor} />
+        <RouteLabels routes={routes} selectedId={selectedId} onSelectRoute={onSelectRoute} />
       </Map>
       {plan && <RiskLegend />}
     </div>

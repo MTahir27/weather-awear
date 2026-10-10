@@ -43,6 +43,7 @@ django_settings_module = "config.settings_test"
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings_test"
 testpaths = ["tests"]
+filterwarnings = ["error"]
 addopts = "-ra --strict-markers --cov=trips --cov-report=term-missing:skip-covered"
 
 [tool.coverage.run]

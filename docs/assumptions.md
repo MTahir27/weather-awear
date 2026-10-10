@@ -91,6 +91,13 @@ Routes are compared in this order:
   (checked in both directions) and takes at most 1.5× the fastest travel time.
 - Trade-off: four extra routing calls per plan, in exchange for ~40% lower
   latency on long trips.
+- Fallbacks are never waited for when TomTom's own alternatives are enough.
+  When they are needed, only those finishing within 10 seconds of the request
+  are used, so one slow request can't delay the plan. Cross-country route
+  calculations get a 20-second timeout and are retried at most once.
+- TomTom's alternatives vary between calls. Occasionally every fallback is a
+  near-duplicate of a route already chosen. The app then shows two routes and
+  says so, rather than padding the list with a duplicate.
 - **Routing uses gross vehicle weight.** The brief's load weight is cargo,
   while truck routing restrictions apply to the whole vehicle. Routing is
   therefore requested with load + 35,000 lb (a typical empty tractor-trailer).

@@ -4,7 +4,7 @@ from itertools import pairwise
 import pytest
 
 from trips.domain.geo import LatLon
-from trips.domain.polyline import _offset_m, encode, simplify
+from trips.domain.polyline import _offset_m, decode, encode, simplify
 
 
 def test_encode_matches_googles_reference_example() -> None:
@@ -12,6 +12,20 @@ def test_encode_matches_googles_reference_example() -> None:
     points = [LatLon(38.5, -120.2), LatLon(40.7, -120.95), LatLon(43.252, -126.453)]
 
     assert encode(points) == "_p~iF~ps|U_ulLnnqC_mqNvxq`@"
+
+
+def test_decode_reverses_encode() -> None:
+    points = [LatLon(38.5, -120.2), LatLon(40.7, -120.95), LatLon(43.252, -126.453)]
+
+    assert decode("_p~iF~ps|U_ulLnnqC_mqNvxq`@") == points
+    assert decode(encode(points)) == points
+    assert decode("") == []
+
+
+@pytest.mark.parametrize("bad", ["_p~iF~ps|", "_p~iF\x00\x00", "~~~~~~"])
+def test_decode_rejects_malformed_input(bad: str) -> None:
+    with pytest.raises(ValueError, match="Malformed"):
+        decode(bad)
 
 
 def test_encode_empty() -> None:

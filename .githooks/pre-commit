@@ -1,0 +1,5 @@
+#!/bin/sh
+# Block commits that would break lint, types, tests or the build.
+# Bypass only in emergencies with `git commit --no-verify`.
+set -e
+make check

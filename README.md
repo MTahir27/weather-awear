@@ -10,10 +10,10 @@ A React + Django web app that helps a truck driver choose the **safest route** b
 
 ![Cheyenne to Salt Lake City: the shorter I-80 routes cross Moderate weather, so the app recommends an all-Low route](docs/images/app.png)
 
-_Cheyenne → Salt Lake City with a 45,000 lb load. The I-80 routes cross Moderate-risk weather,
-so a longer route that stays Low the whole way is recommended. The Severe cell near Provo is the
-forecast at departure; the truck only reaches that stretch about 9 hours later, when its forecast
-is clear._
+_Cheyenne → Salt Lake City with a 45,000 lb load. Each route is labelled with its distance, time
+and risk miles. The I-80 routes (B and C) cross more Moderate-risk weather, so Route A is
+recommended. The red Severe cell near Provo is the forecast at departure; the truck only reaches
+that stretch about 9 hours later, when its forecast is clear._
 
 ---
 

@@ -115,7 +115,7 @@ api/index.py              Vercel entry (exposes Django WSGI app)
 **plan_trip pipeline:** validate → routes (+fill to 3) → sample checkpoints → ETA (+HOS) →
 batched/deduped weather → classify → score → rank.
 
-**Heatmap:** ~25–30 mi buffer around the routes, adaptive grid spacing capped at 250 points,
+**Heatmap:** ~25–30 mi buffer around the routes, adaptive grid spacing capped at 150 points,
 49 hourly frames (0–48 h from departure), risk pre-scored with load rules.
 
 **Robustness:** timeouts + retry/backoff on upstream calls; upstream failure → 502 with readable message;

@@ -31,9 +31,14 @@ KG_PER_LB = 0.45359237
 # The brief's load weight is cargo; routing needs the whole vehicle's weight
 # to respect weight-restricted roads. A typical empty tractor-trailer is ~35,000 lb.
 TYPICAL_TARE_LB = 35_000
-# Checkpoints closer than this share one forecast request (~2 km; finer than
-# the weather models' grid, so no detail is lost).
+# Checkpoints in the same grid cell share one forecast location. The cell starts
+# at ~2 km (finer than the weather models' grid, so no detail is lost) and grows
+# only when a trip would need more than MAX_WEATHER_LOCATIONS, which keeps very
+# long trips within the weather API's per-minute limit. Even fully coarsened,
+# cells stay near the ~13-25 km grid of the models forecasting beyond 2 days.
 WEATHER_GRID_DEG = 0.02
+WEATHER_GRID_GROWTH = 1.5
+MAX_WEATHER_LOCATIONS = 200
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,27 +137,42 @@ class TripPlanner:
             recommendation=recommendation,
         )
 
-    def _forecasts(
-        self, timings: Sequence[_RouteTiming], depart_at: datetime
-    ) -> dict[tuple[int, int], HourlySeries]:
-        cells = sorted(
-            {_grid_cell(position) for t in timings for _, position, _ in t.checkpoint_offsets}
-        )
+    def _forecasts(self, timings: Sequence[_RouteTiming], depart_at: datetime) -> "_Forecasts":
+        positions = [position for t in timings for _, position, _ in t.checkpoint_offsets]
+        grid_deg = weather_grid_deg(positions)
+        cells = sorted({_grid_cell(p, grid_deg) for p in positions})
         latest = max(eta for t in timings for _, _, eta in t.checkpoint_offsets)
         series = self._weather.hourly(
-            [LatLon(lat * WEATHER_GRID_DEG, lon * WEATHER_GRID_DEG) for lat, lon in cells],
+            [LatLon(lat * grid_deg, lon * grid_deg) for lat, lon in cells],
             depart_at,
             latest,
         )
-        return dict(zip(cells, series, strict=True))
+        return _Forecasts(grid_deg, dict(zip(cells, series, strict=True)))
+
+
+@dataclass(frozen=True, slots=True)
+class _Forecasts:
+    grid_deg: float
+    by_cell: dict[tuple[int, int], HourlySeries]
+
+    def at(self, position: LatLon, when: datetime) -> WeatherSample:
+        return self.by_cell[_grid_cell(position, self.grid_deg)].sample_at(when.timestamp())
+
+
+def weather_grid_deg(positions: Sequence[LatLon]) -> float:
+    """Finest grid (from ~2 km) that keeps distinct forecast locations within budget."""
+    grid_deg = WEATHER_GRID_DEG
+    while len({_grid_cell(p, grid_deg) for p in positions}) > MAX_WEATHER_LOCATIONS:
+        grid_deg *= WEATHER_GRID_GROWTH
+    return grid_deg
 
 
 def gross_weight_kg(load_lb: float) -> int:
     return round((load_lb + TYPICAL_TARE_LB) * KG_PER_LB)
 
 
-def _grid_cell(position: LatLon) -> tuple[int, int]:
-    return round(position.lat / WEATHER_GRID_DEG), round(position.lon / WEATHER_GRID_DEG)
+def _grid_cell(position: LatLon, grid_deg: float) -> tuple[int, int]:
+    return round(position.lat / grid_deg), round(position.lon / grid_deg)
 
 
 def _time_route(route_id: str, route: ProviderRoute, request: TripRequest) -> _RouteTiming:
@@ -184,11 +204,11 @@ def _time_route(route_id: str, route: ProviderRoute, request: TripRequest) -> _R
 def _assess_route(
     timing: _RouteTiming,
     request: TripRequest,
-    forecasts: dict[tuple[int, int], HourlySeries],
+    forecasts: _Forecasts,
 ) -> PlannedRoute:
     checkpoints = []
     for distance, position, eta in timing.checkpoint_offsets:
-        weather = forecasts[_grid_cell(position)].sample_at(eta.timestamp())
+        weather = forecasts.at(position, eta)
         assessment = classify(weather, request.load_lb)
         checkpoints.append(PlannedCheckpoint(distance, position, eta, weather, assessment))
 

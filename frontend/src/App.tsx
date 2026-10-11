@@ -114,6 +114,24 @@ export default function App() {
           <p className="text-sm text-slate-600">
             Compare routes by forecast weather risk at the time you reach each stretch.
           </p>
+          <nav aria-label="Project documentation" className="mt-1 flex gap-3 text-xs">
+            <a
+              href="https://github.com/MTahir27/weather-awear/blob/main/docs/assumptions.md"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-sky-700 hover:underline"
+            >
+              How risk is calculated
+            </a>
+            <a
+              href="https://github.com/MTahir27/weather-awear#readme"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-sky-700 hover:underline"
+            >
+              Docs &amp; source on GitHub
+            </a>
+          </nav>
         </header>
 
         <div className="space-y-6 px-4 py-5 sm:px-6">

@@ -14,6 +14,9 @@ export function CheckpointTable({ route, name }: { route: Route; name: string })
       <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800">
         {name}: all {route.checkpoints.length} checkpoints
       </summary>
+      <p className="border-t border-slate-200 px-4 py-2 text-[11px] text-slate-500">
+        Risk uses sustained wind speed, as in the risk table. Gusts are shown for information only.
+      </p>
       <div className="max-h-96 overflow-auto border-t border-slate-200">
         <table className="w-full text-left text-xs">
           <caption className="sr-only">

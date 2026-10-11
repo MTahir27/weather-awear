@@ -5,7 +5,7 @@ A React + Django web app that helps a truck driver choose the **safest route** b
 **travel time**.
 
 - **Live app:** [weather-awear.vercel.app](https://weather-awear.vercel.app)
-- **Walkthrough video:** [AI-narrated walkthrough (5 min)](video/weather-awear-walkthrough.mp4)
+- **Walkthrough video:** [AI-narrated walkthrough (5 min)](https://asset.cloudinary.com/mtdeveloper/2257fce8d5459f8fc5fd31cba722a1eb)
 - **Loom walkthrough (my own narration):** [Watch on Loom](https://www.loom.com/share/d34537cc24b141de831243ea381db80e)
 - **Spec interpretations:** [docs/assumptions.md](docs/assumptions.md)
 
